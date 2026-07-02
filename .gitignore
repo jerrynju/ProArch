@@ -5,3 +5,4 @@ test-results/
 playwright-report/
 *.local
 .DS_Store
+.claude/scheduled_tasks.lock

@@ -1,13 +1,13 @@
 import { M3 } from '../theme';
 import { useStore } from '../store';
-import { BottomSheet, IconButton, Scrim, SheetHeader, Switch } from '../components/widgets';
+import { BottomSheet, ComingSoonTag, disabledStyle, IconButton, Scrim, SheetHeader, Switch } from '../components/widgets';
 import { IcBack, IcCheckCircle, IcClose, IcGear, IcPlot, IcRobot, IcWarning } from '../components/icons';
 
-function AgentRow({ icon, iconBg, iconColor, title, sub, on, onToggle }: {
-  icon: React.ReactNode; iconBg: string; iconColor: string; title: string; sub: string; on: boolean; onToggle: () => void;
+function AgentRow({ icon, iconBg, iconColor, title, sub, on, onToggle, disabled }: {
+  icon: React.ReactNode; iconBg: string; iconColor: string; title: string; sub: string; on: boolean; onToggle: () => void; disabled?: boolean;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: M3.surfaceLow, borderRadius: 16, padding: 14 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: M3.surfaceLow, borderRadius: 16, padding: 14, ...(disabled ? disabledStyle : null) }}>
       <div style={{ width: 40, height: 40, borderRadius: 12, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: iconColor }}>
         {icon}
       </div>
@@ -15,19 +15,19 @@ function AgentRow({ icon, iconBg, iconColor, title, sub, on, onToggle }: {
         <div style={{ fontSize: 13.5, fontWeight: 600, color: M3.text }}>{title}</div>
         <div style={{ fontSize: 11, color: M3.textTertiary, marginTop: 1 }}>{sub}</div>
       </div>
-      <Switch on={on} onToggle={onToggle} />
+      {disabled ? <ComingSoonTag /> : <Switch on={on} onToggle={onToggle} />}
     </div>
   );
 }
 
-function SettingRow({ title, sub, on, onToggle }: { title: string; sub: string; on: boolean; onToggle: () => void }) {
+function SettingRow({ title, sub, on, onToggle, disabled }: { title: string; sub: string; on: boolean; onToggle: () => void; disabled?: boolean }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', ...(disabled ? disabledStyle : null) }}>
       <div>
         <div style={{ fontSize: 13.5, color: M3.text }}>{title}</div>
         <div style={{ fontSize: 11, color: M3.textTertiary, marginTop: 1 }}>{sub}</div>
       </div>
-      <Switch on={on} onToggle={onToggle} />
+      {disabled ? <ComingSoonTag /> : <Switch on={on} onToggle={onToggle} />}
     </div>
   );
 }
@@ -77,11 +77,11 @@ export function AgentsSheet() {
               />
               <AgentRow
                 icon={<IcPlot size={19} color={M3.onSecondaryContainer} />} iconBg={M3.secondaryContainer} iconColor={M3.onSecondaryContainer}
-                title="自动生成图表" sub="计算完成后自动补充可视化" on={autoChart} onToggle={() => set({ autoChart: !autoChart })}
+                title="自动生成图表" sub="计算完成后自动补充可视化" on={autoChart} onToggle={() => set({ autoChart: !autoChart })} disabled
               />
               <AgentRow
                 icon={<IcWarning size={19} color={M3.onTertiaryContainer} />} iconBg={M3.tertiaryContainer} iconColor={M3.onTertiaryContainer}
-                title="参数越界预警" sub="超出安全阈值时主动提醒" on={autoAlert} onToggle={() => set({ autoAlert: !autoAlert })}
+                title="参数越界预警" sub="超出安全阈值时主动提醒" on={autoAlert} onToggle={() => set({ autoAlert: !autoAlert })} disabled
               />
               <div style={{ fontSize: 11.5, fontWeight: 600, color: M3.textTertiary, marginTop: 6 }}>对话历史</div>
               {[
@@ -109,24 +109,25 @@ export function AgentsSheet() {
               </IconButton>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: M3.textTertiary, marginBottom: 8 }}>模型选择</div>
+              <div style={disabledStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: M3.textTertiary }}>模型选择</span>
+                  <ComingSoonTag />
+                </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <ModelChip active={aiModel === 'standard'} onClick={() => set({ aiModel: 'standard' })}>标准</ModelChip>
-                  <ModelChip active={aiModel === 'deep'} onClick={() => set({ aiModel: 'deep' })}>深度推理</ModelChip>
-                  <ModelChip active={aiModel === 'fast'} onClick={() => set({ aiModel: 'fast' })}>快速</ModelChip>
+                  <ModelChip active={aiModel === 'standard'} onClick={() => {}}>标准</ModelChip>
+                  <ModelChip active={aiModel === 'deep'} onClick={() => {}}>深度推理</ModelChip>
+                  <ModelChip active={aiModel === 'fast'} onClick={() => {}}>快速</ModelChip>
                 </div>
               </div>
-              <div>
+              <div style={disabledStyle}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
                   <span style={{ fontSize: 12, fontWeight: 600, color: M3.textTertiary }}>思考深度</span>
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: M3.primary }}>
-                    {['低 · 更快', '中 · 均衡', '高 · 更准确'][thinkingDepth] ?? '中 · 均衡'}
-                  </span>
+                  <ComingSoonTag />
                 </div>
                 <input
                   type="range" min={0} max={2} step={1} value={thinkingDepth}
-                  onChange={(e) => set({ thinkingDepth: Number(e.target.value) })}
+                  disabled
                   style={{ width: '100%', accentColor: M3.primary }}
                   aria-label="思考深度"
                 />
@@ -135,8 +136,8 @@ export function AgentsSheet() {
                 <div style={{ fontSize: 12, fontWeight: 600, color: M3.textTertiary, marginBottom: 8 }}>自动化智能体</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <SettingRow title="自动规范校核" sub="参数变化后自动重新校核" on={autoVerify} onToggle={() => set({ autoVerify: !autoVerify })} />
-                  <SettingRow title="自动生成图表" sub="计算完成后自动补充可视化" on={autoChart} onToggle={() => set({ autoChart: !autoChart })} />
-                  <SettingRow title="参数越界预警" sub="超出安全阈值时主动提醒" on={autoAlert} onToggle={() => set({ autoAlert: !autoAlert })} />
+                  <SettingRow title="自动生成图表" sub="计算完成后自动补充可视化" on={autoChart} onToggle={() => set({ autoChart: !autoChart })} disabled />
+                  <SettingRow title="参数越界预警" sub="超出安全阈值时主动提醒" on={autoAlert} onToggle={() => set({ autoAlert: !autoAlert })} disabled />
                 </div>
               </div>
             </div>

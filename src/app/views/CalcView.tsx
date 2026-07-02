@@ -1,25 +1,31 @@
 import type { ReactNode } from 'react';
 import { M3, type ShellTheme } from '../theme';
 import { useSession, useStore } from '../store';
-import { deriveCards, paramDisplayShort, type RenderCard } from '../derive';
+import { deriveCards, type RenderCard } from '../derive';
 import { fmtNumber } from '../../core/kernel/kernel';
 import type { Cell } from '../../core/model/types';
 import { SourceBlock } from '../cells/SourceBlock';
+import { ParamControls } from '../cells/ParamControls';
 import { PlotSvg, PlotAxisLabels } from '../cells/PlotSvg';
-import { StateChip, Chip, SliderRow } from '../components/widgets';
+import { StateChip } from '../components/widgets';
 import {
-  IcCheckCircle, IcChevronDown, IcNote, IcPlot, IcTable, IcTrend, IcWave, IcWrench, IcXCircle,
+  IcCheckCircle, IcChevronDown, IcNote, IcPencil, IcPlot, IcTable, IcTrend, IcWave, IcWrench, IcXCircle,
 } from '../components/icons';
 
 function CardShell({ card, children }: { card: RenderCard; children: ReactNode }) {
   const selected = useStore((s) => s.selectedCellId) === card.cell?.id;
+  const { session } = useSession();
+  const pending = !!card.cell && !!session.pending?.ops.some((op) => 'cellId' in op && op.cellId === card.cell!.id);
   return (
     <div
       data-testid={`cell-${card.cell?.id ?? card.key}`}
       style={{
         background: '#FFFFFF',
-        border: selected ? `1.5px solid ${M3.primary}` : `1px solid ${M3.outline}`,
-        borderRadius: 18, overflow: 'hidden', boxShadow: '0 1px 2px rgba(0,0,0,.06)',
+        border: pending
+          ? `1.5px dashed ${M3.primary}`
+          : selected ? `1.5px solid ${M3.primary}` : `1px solid ${M3.outline}`,
+        borderRadius: 18, overflow: 'hidden',
+        boxShadow: selected && pending ? `0 0 0 3px ${M3.primaryContainer}, 0 1px 2px rgba(0,0,0,.06)` : '0 1px 2px rgba(0,0,0,.06)',
       }}
     >
       {children}
@@ -60,63 +66,41 @@ function CardHeader({ card, icon, iconBg, iconColor, expandable }: {
 }
 
 function SourceSection({ cell }: { cell: Cell }) {
-  const { sourceHidden, toggleSource } = useStore();
+  const { sourceHidden, toggleSource, selectCell, set } = useStore();
   const hidden = sourceHidden[cell.id];
   if (cell.kind.type !== 'code') return null;
+
+  const openEditor = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    selectCell(cell.id);
+    set({ actionMode: 'tools', actionTab: 'cell', actionExpanded: true, actionSubView: null });
+  };
+
   return (
-    <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
-        <span style={{ fontSize: 10.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.03em' }}>源码</span>
-        <div onClick={() => toggleSource(cell.id)} style={{ fontSize: 11, color: M3.primary, fontWeight: 600, cursor: 'pointer' }}>
-          {hidden ? '显示源码' : '隐藏源码'}
+    <div style={{ marginTop: 12 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10, background: M3.codeBg,
+        borderRadius: hidden ? 12 : '12px 12px 0 0', padding: '8px 12px',
+      }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: M3.codeComment, letterSpacing: '.04em' }}>源码 · rhai</span>
+        <div style={{ flex: 1 }} />
+        <div
+          onClick={openEditor}
+          data-testid={`edit-source-${cell.id}`}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#fff', opacity: 0.85, cursor: 'pointer' }}
+        >
+          <IcPencil size={12} strokeWidth={2} />
+          编辑
+        </div>
+        <div
+          onClick={(e) => { e.stopPropagation(); toggleSource(cell.id); }}
+          style={{ fontSize: 10.5, color: '#fff', opacity: 0.85, cursor: 'pointer' }}
+        >
+          {hidden ? '显示' : '隐藏'}
         </div>
       </div>
-      {!hidden && <SourceBlock source={cell.kind.source} />}
-    </>
-  );
-}
-
-function ParamControls({ params }: { params: Cell[] }) {
-  const setParam = useStore((s) => s.setParam);
-  return (
-    <>
-      {params.map((p) => {
-        if (p.kind.type !== 'param') return null;
-        const k = p.kind;
-        if (k.control.kind === 'slider') {
-          const c = k.control;
-          const v = typeof k.value === 'number' ? k.value : 0;
-          return (
-            <SliderRow
-              key={p.id}
-              label={k.label ?? k.name}
-              display={`${fmtNumber(v)} ${c.unit ?? ''}`.trim()}
-              min={c.min} max={c.max} step={c.step} value={v}
-              onChange={(nv) => setParam(p.id, nv)}
-            />
-          );
-        }
-        if (k.control.kind === 'select') {
-          return (
-            <div key={p.id}>
-              <div style={{ fontSize: 12.5, color: M3.textSecondary, margin: '14px 0 6px' }}>{k.label ?? k.name}</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {k.control.options.map((opt) => (
-                  <Chip
-                    key={opt.label}
-                    active={paramDisplayShort(p) === opt.label}
-                    onClick={() => setParam(p.id, typeof opt.value === 'number' ? opt.value : 0)}
-                  >
-                    {opt.label}
-                  </Chip>
-                ))}
-              </div>
-            </div>
-          );
-        }
-        return null;
-      })}
-    </>
+      {!hidden && <SourceBlock source={cell.kind.source} flushTop />}
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseProMd } from '../src/core/promd/parse';
-import { KernelSession } from '../src/core/kernel/kernel';
+import { KernelSession, dedupeSymbols, makeCell } from '../src/core/kernel/kernel';
 import { ALL_PACKAGES } from '../src/core/packages/rf';
 
 const load = (name: string) =>
@@ -27,8 +27,19 @@ describe('beam notebook golden values', () => {
     expect(check?.message).toContain('未通过');
   });
 
-  it('material cell errors on undefined I_section with a hint', () => {
+  it('material cell derives section modulus from I and passes cleanly by default', () => {
     const s = new KernelSession(load('cantilever-beam.pro.md'));
+    expect(s.errors.get('beam-material')).toBeUndefined();
+    const check = s.outputs.get('beam-material')?.['application/vnd.proarch.check+json'];
+    expect(check?.pass).toBe(true);
+  });
+
+  it('reintroducing the classic undefined I_section bug still errors with a hint', () => {
+    const s = new KernelSession(load('cantilever-beam.pro.md'));
+    s.request({
+      op: 'update_cell', cellId: 'beam-material',
+      source: 'let sigma = F * 1000.0 * L / (I_section * 1e-6);\ncheck(sigma <= 235e6, "应力满足限值", "应力超限")',
+    });
     const err = s.errors.get('beam-material');
     expect(err?.kind).toBe('undefined_symbol');
     expect(err?.message).toContain('I_section');
@@ -42,6 +53,32 @@ describe('beam notebook golden values', () => {
     expect(plot?.y.length).toBe(24);
     // free-end deflection equals delta_mm
     expect(plot!.y[plot!.y.length - 1]).toBeCloseTo(s.currentValue('delta_mm') as number, 6);
+  });
+
+  it('inserting the same compute template twice renames the second copy\'s symbol', () => {
+    const s = new KernelSession(load('cantilever-beam.pro.md'));
+    const template = 'let sigma_new = F * 1000.0 * L / ((I / 12.5) * 1e-6);\ncheck(sigma_new <= 235e6, "应力满足限值", "应力超限")';
+    // first insertion: no collision yet, symbol name passes through untouched
+    const first = dedupeSymbols(template, s.definedSymbols());
+    expect(first).toContain('let sigma_new =');
+    s.request({ op: 'insert_cell', after: 'beam-material', cell: makeCell({ type: 'code', source: first, lang: 'rhai' }) });
+    // second insertion of the identical template now collides with the first
+    const second = dedupeSymbols(template, s.definedSymbols());
+    expect(second).toContain('let sigma_new2 =');
+    expect(second).toContain('check(sigma_new2 <=');
+  });
+
+  it('dedupeSymbols renames a colliding let-binding and every reference to it', () => {
+    const taken = new Set(['sigma', 'W_m3']);
+    const out = dedupeSymbols('let sigma = 1.0;\ncheck(sigma <= 2.0, "ok", "no")', taken);
+    expect(out).not.toMatch(/\bsigma\b/);
+    expect(out).toContain('let sigma2 = 1.0;');
+    expect(out).toContain('check(sigma2 <= 2.0');
+  });
+
+  it('dedupeSymbols leaves non-colliding bindings untouched', () => {
+    const out = dedupeSymbols('let q = 1.0;\nquantity(q, "W")', new Set(['sigma']));
+    expect(out).toBe('let q = 1.0;\nquantity(q, "W")');
   });
 });
 

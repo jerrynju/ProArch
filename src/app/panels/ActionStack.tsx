@@ -52,8 +52,9 @@ const SPIN_RING: CSSProperties = {
 const COMPUTE_TEMPLATES = [
   { name: '悬臂梁挠度', bg: 'linear-gradient(135deg,#EADDFF,#D0BCFF)', current: true, template: 'let delta = F * 1000.0 * L^3 / (3.0 * (E * 1e9) * (I * 1e-8)) * 1000.0;\nquantity(delta, "mm")' },
   { name: '简支梁弯矩', bg: 'linear-gradient(135deg,#C8E6C9,#8FCB93)', template: 'let M_max = F * L / 4.0;\nquantity(M_max, "kN·m")' },
-  { name: '应力校核', bg: 'linear-gradient(135deg,#FFD8E4,#F3A6BE)', template: 'let sigma = F * 1000.0 * L / ((I / 12.5) * 1e-6);\ncheck(sigma <= 235e6, "应力满足限值", "应力超限")' },
+  { name: '应力校核', bg: 'linear-gradient(135deg,#FFD8E4,#F3A6BE)', template: 'let sigma_new = F * 1000.0 * L / ((I / 12.5) * 1e-6);\ncheck(sigma_new <= 235e6, "应力满足限值", "应力超限")' },
   { name: '热传导', bg: 'linear-gradient(135deg,#FFE0B2,#FFB74D)', template: 'let q = 50.0 * (80.0 - 20.0) / 0.2;\nquantity(q, "W/m²")' },
+  { name: '错误演示', bg: 'linear-gradient(135deg,#F9DEDC,#F2B8B5)', template: 'let sigma_demo = F * 1000.0 * L / (I_section * 1e-6);\ncheck(sigma_demo <= 235e6, "应力满足限值", "应力超限")' },
 ];
 
 const PLOT_TEMPLATES = [
@@ -106,7 +107,7 @@ function SubGallery({ kind }: { kind: 'compute' | 'plot' }) {
 
 export function ActionStack() {
   const {
-    actionMode, actionExpanded, actionTab, actionSubView, quickParamOpen, chartRunning, agentBusy,
+    actionMode, actionExpanded, actionTab, actionSubView, quickParamOpen, agentBusy,
     set, cellAction, insertSnippet, sendPrompt, setParam, selectedCellId,
   } = useStore();
   const { session } = useSession();
@@ -160,7 +161,7 @@ export function ActionStack() {
                 </div>
               </div>
 
-              {chartRunning && !actionExpanded && (
+              {agentBusy && !actionExpanded && (
                 <div style={{ height: 3, borderRadius: 2, background: M3.outline, overflow: 'hidden', marginTop: 8 }}>
                   <div style={{ width: '40%', height: '100%', background: M3.primary, borderRadius: 2, animation: 'pa-indet 1.2s ease-in-out infinite' }} />
                 </div>
@@ -229,8 +230,12 @@ export function ActionStack() {
                       <Tile label="解释" icon={<IcSparkle size={18} />} onClick={() => { set({ actionMode: 'chat' }); sendPrompt('解释这段计算', { cellId: selectedCellId ?? undefined }); }} testId="ai-explain" />
                       <Tile label="优化" icon={<IcGear size={18} />} onClick={() => { set({ actionMode: 'chat' }); sendPrompt('优化这段计算'); }} />
                       <div style={{ position: 'relative', flex: 1 }}>
-                        {chartRunning && <div style={SPIN_RING} />}
-                        <Tile label="生成图表" icon={<IcPlot size={18} />} active={chartRunning} onClick={() => set({ chartRunning: !chartRunning })} testId="ai-chart" />
+                        {agentBusy && <div style={SPIN_RING} />}
+                        <Tile
+                          label="生成图表" icon={<IcPlot size={18} />} active={agentBusy}
+                          onClick={() => { set({ actionMode: 'chat' }); sendPrompt('生成图表'); }}
+                          testId="ai-chart"
+                        />
                       </div>
                       <Tile label="提问" icon={<IcSend size={18} />} onClick={() => set({ actionMode: 'chat', actionExpanded: true })} />
                     </div>

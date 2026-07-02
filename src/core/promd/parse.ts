@@ -119,7 +119,10 @@ function metaFromFrontmatter(fm: Record<string, unknown>): { meta: NotebookMeta;
 export function parseProMd(text: string): ParseResult {
   const diagnostics: string[] = [];
   let idsBackfilled = false;
-  const lines = text.split('\n');
+  // Normalize CRLF/CR up front — a raw '\n' split leaves a trailing '\r' on
+  // every line for CRLF-checked-out files (e.g. Windows git core.autocrlf),
+  // which silently breaks the flow-YAML frontmatter parser below.
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
   let i = 0;
 
   // --- frontmatter ---

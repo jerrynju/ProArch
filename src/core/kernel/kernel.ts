@@ -128,6 +128,11 @@ export class KernelSession {
     return this.symbols.get(symbol);
   }
 
+  /** All symbols currently defined notebook-wide (DAG rule R1: one definer each). */
+  definedSymbols(): Set<string> {
+    return new Set(this.symbols.keys());
+  }
+
   // ---------- control channel ----------
 
   request(req: Request, origin: Origin = { by: 'user' }): Reply {
@@ -428,4 +433,35 @@ export class KernelSession {
 /** Convenience: build a fresh cell */
 export function makeCell(kind: Cell['kind']): Cell {
   return { id: ulid(), kind, viewHints: {}, tags: [] };
+}
+
+/**
+ * Rewrite top-level `let name = ...` bindings in freshly-inserted/duplicated
+ * source so they never collide with symbols already defined elsewhere in the
+ * notebook (DAG rule R1: at most one definer per symbol). Renames every
+ * reference to the shadowed name within the same source, so `let sigma = …`
+ * + later `check(sigma <= …)` stay consistent after a `sigma` → `sigma2`
+ * rename. Used both for user-inserted templates and agent-inserted cells.
+ */
+export function dedupeSymbols(source: string, taken: Set<string>): string {
+  const defineRe = /^(\s*let\s+)([A-Za-z_]\w*)/gm;
+  const renames = new Map<string, string>();
+  let m: RegExpExecArray | null;
+  while ((m = defineRe.exec(source))) {
+    const name = m[2];
+    if (renames.has(name) || !taken.has(name)) {
+      taken.add(name);
+      continue;
+    }
+    let n = 2;
+    let candidate = `${name}${n}`;
+    while (taken.has(candidate)) candidate = `${name}${++n}`;
+    taken.add(candidate);
+    renames.set(name, candidate);
+  }
+  let result = source;
+  for (const [from, to] of renames) {
+    result = result.replace(new RegExp(`\\b${from}\\b`, 'g'), to);
+  }
+  return result;
 }

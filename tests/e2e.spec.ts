@@ -29,9 +29,8 @@ test.describe('ProArch engineering notebook', () => {
     await expect(page.getByTestId('aside-beam-compute')).toContainText('8 mm');
     await shot(page, '01-calc-initial');
 
-    // material stress cell is errored with undefined I_section + fix button
-    await expect(page.getByTestId('cell-beam-material')).toContainText('I_section');
-    await expect(page.getByTestId('fix-error-btn')).toBeVisible();
+    // material stress cell passes cleanly by default (no unresolved bug on first load)
+    await expect(page.getByTestId('cell-beam-material')).toContainText('应力满足');
 
     // drag F 10 → 20 kN: δ = 13.33 > 8 → verification fails
     await setRange(page, '端部荷载 F', 20);
@@ -170,8 +169,15 @@ test.describe('ProArch engineering notebook', () => {
     await shot(page, '17-pending-accepted');
   });
 
-  test('fix-error flow repairs the material cell via propose mode', async ({ page }) => {
+  test('fix-error flow repairs an inserted error-demo cell via propose mode', async ({ page }) => {
     await page.goto('/');
+    // the default notebook loads clean; insert the "错误演示" template to
+    // exercise the fix-error agent flow on demand
+    await page.getByText('插入', { exact: true }).click();
+    await page.getByTestId('insert-compute').click();
+    await page.getByText('错误演示').click();
+
+    await expect(page.getByTestId('fix-error-btn')).toBeVisible();
     await page.getByTestId('fix-error-btn').click();
     await expect(page.getByTestId('chat-panel')).toBeVisible();
     await expect(page.getByTestId('pending-badge')).toBeVisible({ timeout: 10_000 });
@@ -181,8 +187,8 @@ test.describe('ProArch engineering notebook', () => {
     await page.getByTestId('pending-accept-all').click();
     await page.getByTestId('chat-back').click();
 
-    // error card becomes a passing check card
-    await expect(page.getByTestId('check-beam-material')).toContainText('应力满足', { timeout: 10_000 });
+    // error card becomes a passing check card; no errored cells remain
+    await expect(page.getByTestId('fix-error-btn')).toHaveCount(0, { timeout: 10_000 });
     await shot(page, '18-error-fixed');
   });
 

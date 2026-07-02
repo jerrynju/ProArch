@@ -4,14 +4,19 @@ import { BottomSheet, Scrim, SheetHeader } from '../components/widgets';
 import { IcBookmark, IcCode, IcDownload, IcFile, IcPlot } from '../components/icons';
 
 const ARTIFACTS = [
-  { name: '挠度曲线.png', sub: '图表 · 2分钟前', icon: <IcPlot size={20} color={M3.onSecondaryContainer} />, bg: M3.secondaryContainer, action: 'notebook' as const },
-  { name: '悬臂梁挠度报告.pdf', sub: '导出文档 · 昨天', icon: <IcFile size={20} color={M3.onTertiaryContainer} />, bg: M3.tertiaryContainer, action: 'none' as const },
-  { name: 'beam_deflection.m', sub: 'MATLAB 脚本 · 3天前', icon: <IcCode size={20} color={M3.textSecondary} />, bg: '#ECE6F0', action: 'script' as const },
+  { name: '笔记本 (.pro.md)', sub: '含全部单元源码 · 随时导出', icon: <IcPlot size={20} color={M3.onSecondaryContainer} />, bg: M3.secondaryContainer, action: 'notebook' as const },
+  { name: '悬臂梁挠度报告.pdf', sub: '打印/另存为 PDF', icon: <IcFile size={20} color={M3.onTertiaryContainer} />, bg: M3.tertiaryContainer, action: 'print' as const },
+  { name: 'beam_deflection.m', sub: 'MATLAB 脚本 · 随时导出', icon: <IcCode size={20} color={M3.textSecondary} />, bg: '#ECE6F0', action: 'script' as const },
 ];
 
 export function ArtifactsSheet() {
   const { artifactsOpen, set, exportScript, exportNotebook } = useStore();
   const close = () => set({ artifactsOpen: false });
+  const run = (a: (typeof ARTIFACTS)[number]) => {
+    if (a.action === 'script') exportScript();
+    if (a.action === 'notebook') exportNotebook();
+    if (a.action === 'print') window.print();
+  };
   return (
     <>
       <Scrim open={artifactsOpen} onClick={close} />
@@ -21,7 +26,7 @@ export function ArtifactsSheet() {
           {ARTIFACTS.map((a) => (
             <div
               key={a.name}
-              onClick={() => { if (a.action === 'script') exportScript(); if (a.action === 'notebook') exportNotebook(); }}
+              onClick={() => run(a)}
               style={{ display: 'flex', alignItems: 'center', gap: 12, background: M3.surfaceLow, borderRadius: 14, padding: '12px 14px', cursor: 'pointer' }}
             >
               <div style={{ width: 42, height: 42, borderRadius: 10, background: a.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

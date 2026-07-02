@@ -25,6 +25,12 @@ function runTurn(agent: AgentOrchestrator, text: string, mode: 'chat' | 'auto') 
 describe('scripted agent turns', () => {
   it('fix-error turn proposes a pending update that clears the error on accept', async () => {
     const session = new KernelSession(load());
+    // the default notebook loads clean; reintroduce the classic undefined-I_section
+    // bug (same bait orchestrator.fixErrorTurn pattern-matches) to exercise the flow
+    session.request({
+      op: 'update_cell', cellId: 'beam-material',
+      source: 'let sigma = F * 1000.0 * L / (I_section * 1e-6);\ncheck(sigma <= 235e6, "应力满足 Q235 限值", "应力超限,建议增大截面")',
+    });
     const agent = new AgentOrchestrator(session);
     expect(session.errors.get('beam-material')?.kind).toBe('undefined_symbol');
 
@@ -70,7 +76,9 @@ describe('scripted agent turns', () => {
     const agent = new AgentOrchestrator(session);
     const events = await runTurn(agent, '当前参数是否满足规范要求?', 'chat');
     const text = events.filter((e) => e.kind.k === 'delta').map((e) => (e.kind as { text: string }).text).join('');
-    expect(text).toContain('通过');
+    // verifyTurn reports the notebook's last check cell — with the default
+    // notebook now loading clean, that's beam-material (材料应力校核)
+    expect(text).toContain('满足');
     expect(text).toContain('mm');
   });
 });

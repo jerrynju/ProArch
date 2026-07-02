@@ -4,7 +4,8 @@ import { useSession, useStore } from '../store';
 import { deriveCards, type RenderCard } from '../derive';
 import { fmtNumber } from '../../core/kernel/kernel';
 import { PlotSvg } from '../cells/PlotSvg';
-import { SegTab, IconButton, StateChip } from '../components/widgets';
+import { ParamControls } from '../cells/ParamControls';
+import { ComingSoonTag, disabledStyle, IconButton, StateChip } from '../components/widgets';
 import {
   IcBookmark, IcCheckCircle, IcClose, IcDots, IcGrid, IcNote, IcSparkle, IcTable, IcWave, IcXCircle,
 } from '../components/icons';
@@ -38,8 +39,17 @@ function FeedPage({ card }: { card: RenderCard }) {
           </div>
           <div style={{ fontSize: 13, color: M3.textSecondary, marginTop: 14 }}>{card.summary}</div>
           {card.aside && (
-            <div style={{ marginTop: 26, background: M3.surfaceContainer, borderRadius: 16, padding: '16px 20px', fontSize: 13, color: M3.textSecondary }}>
+            <div style={{ marginTop: 18, background: M3.surfaceContainer, borderRadius: 16, padding: '16px 20px', fontSize: 13, color: M3.textSecondary }}>
               {card.aside.label} = {card.aside.value}
+            </div>
+          )}
+          {card.paramCells.length > 0 && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{ marginTop: 22, width: '100%', maxWidth: 280, textAlign: 'left', background: '#FFFFFF', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}
+            >
+              <ParamControls params={card.paramCells} compact />
             </div>
           )}
         </div>
@@ -64,6 +74,15 @@ function FeedPage({ card }: { card: RenderCard }) {
           </div>
           <div style={{ fontSize: 17, fontWeight: 600, color: M3.text, marginTop: 16 }}>{card.title}</div>
           <div style={{ fontSize: 13, color: M3.textSecondary, marginTop: 4 }} data-testid="feed-check">{card.check?.message}</div>
+          {card.paramCells.length > 0 && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{ marginTop: 22, width: '100%', maxWidth: 280, textAlign: 'left', background: '#FFFFFF', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}
+            >
+              <ParamControls params={card.paramCells} compact />
+            </div>
+          )}
         </div>
       );
     }
@@ -184,10 +203,11 @@ export function FeedView({ shell }: { shell: ShellTheme }) {
             <IcDots size={19} color={M3.textSecondary} />
           </IconButton>
           {feedActionMenuOpen && (
-            <div style={{ position: 'absolute', right: 52, bottom: 0, background: '#FFFFFF', borderRadius: 14, boxShadow: '0 6px 20px rgba(0,0,0,.2)', padding: 6, minWidth: 140 }}>
+            <div style={{ position: 'absolute', right: 52, bottom: 0, background: '#FFFFFF', borderRadius: 14, boxShadow: '0 6px 20px rgba(0,0,0,.2)', padding: 6, minWidth: 160 }}>
               {['添加批注', '分享该卡片', '导出为图片'].map((t) => (
-                <div key={t} onClick={() => set({ feedActionMenuOpen: false })} style={{ padding: '9px 12px', fontSize: 12.5, color: M3.text, borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  {t}
+                <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', fontSize: 12.5, color: M3.text, borderRadius: 8, whiteSpace: 'nowrap', ...disabledStyle }}>
+                  <span style={{ flex: 1 }}>{t}</span>
+                  <ComingSoonTag />
                 </div>
               ))}
             </div>
@@ -195,25 +215,19 @@ export function FeedView({ shell }: { shell: ShellTheme }) {
         </div>
       </div>
 
-      {/* bottom pager + mode switch */}
+      {/* bottom pager — mode switching lives in the top SegTab, no need to duplicate it here */}
       <div style={{
         position: 'absolute', left: 0, right: 0, bottom: 0, padding: '10px 16px 16px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
         background: `linear-gradient(rgba(254,247,255,0), ${shell.contentBg}EB 40%)`,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <IconButton size={26} onClick={() => set({ feedOverview: !feedOverview })} testId="feed-overview-btn">
-            <IcGrid size={15} color={M3.primary} />
-          </IconButton>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {cards.map((c, i) => (
-              <div key={c.key} style={{ width: 6, height: 6, borderRadius: 3, background: i === feedIndex ? M3.primary : M3.outlineDim }} />
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'flex', background: M3.surfaceContainer, borderRadius: 20, padding: 3, gap: 2, minWidth: 160 }}>
-          <SegTab active={false} onClick={() => goMode('read')}>Read</SegTab>
-          <SegTab active={false} onClick={() => goMode('calc')}>Calc</SegTab>
+        <IconButton size={26} onClick={() => set({ feedOverview: !feedOverview })} testId="feed-overview-btn">
+          <IcGrid size={15} color={M3.primary} />
+        </IconButton>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {cards.map((c, i) => (
+            <div key={c.key} style={{ width: 6, height: 6, borderRadius: 3, background: i === feedIndex ? M3.primary : M3.outlineDim }} />
+          ))}
         </div>
       </div>
     </>

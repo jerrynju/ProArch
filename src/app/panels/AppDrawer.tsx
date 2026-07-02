@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { M3 } from '../theme';
 import { NOTEBOOK_FILES, useStore } from '../store';
-import { IconButton, Scrim, Switch } from '../components/widgets';
+import { ComingSoonTag, disabledStyle, IconButton, Scrim, Switch } from '../components/widgets';
 import {
   IcBack, IcChevronRight, IcDownload, IcFile, IcFilePlus, IcFolder, IcFolderPlus, IcGear,
   IcLogout, IcMoon, IcPlus, IcStar, IcSun, IcUpload, IcUser,
@@ -18,11 +18,18 @@ function SubHeader({ title, onBack }: { title: string; onBack: () => void }) {
   );
 }
 
-function Row({ label, right, onClick }: { label: string; right?: ReactNode; onClick?: () => void }) {
+function Row({ label, right, onClick, disabled }: { label: string; right?: ReactNode; onClick?: () => void; disabled?: boolean }) {
   return (
-    <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px', cursor: onClick ? 'pointer' : 'default' }}>
+    <div
+      onClick={disabled ? undefined : onClick}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px',
+        cursor: disabled ? 'not-allowed' : onClick ? 'pointer' : 'default',
+        ...(disabled ? disabledStyle : null),
+      }}
+    >
       <span style={{ fontSize: 13.5, color: M3.text }}>{label}</span>
-      {right ?? <IcChevronRight size={16} color={M3.textTertiary} />}
+      {right ?? (disabled ? <ComingSoonTag /> : <IcChevronRight size={16} color={M3.textTertiary} />)}
     </div>
   );
 }
@@ -41,15 +48,15 @@ function AccountView() {
               <div style={{ fontSize: 12.5, color: M3.textTertiary, marginTop: 2 }}>wang@structuremail.com</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, borderTop: `1px solid ${M3.surfaceContainer}`, paddingTop: 8 }}>
-              <Row label="通知设置" />
-              <Row label="语言 · 简体中文" />
-              <Row label="订阅计划 · 专业版" />
+              <Row label="通知设置" disabled />
+              <Row label="语言 · 简体中文" disabled />
+              <Row label="订阅计划 · 专业版" disabled />
             </div>
             <div
               onClick={() => set({ isLoggedIn: false, drawerView: 'main' })}
               style={{ marginTop: 20, textAlign: 'center', padding: 12, borderRadius: 14, background: M3.errorContainer, color: M3.onErrorContainer, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
             >
-              退出登录
+              退出登录(演示)
             </div>
           </div>
         ) : (
@@ -86,18 +93,17 @@ function FavoritesView() {
 }
 
 function NewProjectView() {
-  const { set } = useStore();
-  const back = () => set({ drawerView: 'main', drawerOpen: false, mode: 'home' });
+  const { set, openNotebook } = useStore();
   const templates = [
-    { name: '悬臂梁挠度分析', sub: '结构力学模板', bg: 'linear-gradient(135deg,#EADDFF,#D0BCFF)' },
-    { name: 'X 波段链路预算', sub: 'rf 域包模板', bg: 'linear-gradient(135deg,#C8E6C9,#8FCB93)' },
+    { name: '悬臂梁挠度分析', sub: '结构力学模板', bg: 'linear-gradient(135deg,#EADDFF,#D0BCFF)', path: NOTEBOOK_FILES[0].path },
+    { name: 'X 波段链路预算', sub: 'rf 域包模板', bg: 'linear-gradient(135deg,#C8E6C9,#8FCB93)', path: NOTEBOOK_FILES[1].path },
     { name: '应力校核清单', sub: '通用校核模板', bg: 'linear-gradient(135deg,#FFD8E4,#F3A6BE)' },
   ];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <SubHeader title="新建项目" onBack={() => set({ drawerView: 'main' })} />
       <div style={{ flex: 1, overflowY: 'auto', padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div onClick={back} style={{ display: 'flex', alignItems: 'center', gap: 14, background: M3.surfaceLow, borderRadius: 16, padding: 16, cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: M3.surfaceLow, borderRadius: 16, padding: 16, ...disabledStyle }}>
           <div style={{ width: 42, height: 42, borderRadius: 12, background: M3.primaryContainer, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: M3.onPrimaryContainer }}>
             <IcPlus size={20} />
           </div>
@@ -105,8 +111,9 @@ function NewProjectView() {
             <div style={{ fontSize: 14, fontWeight: 600, color: M3.text }}>新建空白项目</div>
             <div style={{ fontSize: 12, color: M3.textTertiary, marginTop: 2 }}>从一张空白 .pro.md 笔记本开始</div>
           </div>
+          <ComingSoonTag />
         </div>
-        <div onClick={back} style={{ display: 'flex', alignItems: 'center', gap: 14, background: M3.surfaceLow, borderRadius: 16, padding: 16, cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: M3.surfaceLow, borderRadius: 16, padding: 16, ...disabledStyle }}>
           <div style={{ width: 42, height: 42, borderRadius: 12, background: M3.secondaryContainer, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: M3.onSecondaryContainer }}>
             <IcUpload size={20} />
           </div>
@@ -114,15 +121,25 @@ function NewProjectView() {
             <div style={{ fontSize: 14, fontWeight: 600, color: M3.text }}>导入项目</div>
             <div style={{ fontSize: 12, color: M3.textTertiary, marginTop: 2 }}>从文件或其他工具导入</div>
           </div>
+          <ComingSoonTag />
         </div>
         <div style={{ fontSize: 11.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.04em', padding: '10px 2px 2px' }}>从模板新建</div>
         {templates.map((t) => (
-          <div key={t.name} onClick={back} style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#FFFFFF', border: `1px solid ${M3.outline}`, borderRadius: 16, padding: 14, cursor: 'pointer' }}>
+          <div
+            key={t.name}
+            onClick={t.path ? () => openNotebook(t.path!) : undefined}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 14, background: '#FFFFFF', border: `1px solid ${M3.outline}`,
+              borderRadius: 16, padding: 14, cursor: t.path ? 'pointer' : 'not-allowed',
+              ...(t.path ? null : disabledStyle),
+            }}
+          >
             <div style={{ width: 38, height: 38, borderRadius: 10, background: t.bg, flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13.5, fontWeight: 600, color: M3.text }}>{t.name}</div>
               <div style={{ fontSize: 11.5, color: M3.textTertiary, marginTop: 1 }}>{t.sub}</div>
             </div>
+            {!t.path && <ComingSoonTag />}
           </div>
         ))}
       </div>
@@ -138,10 +155,10 @@ function SettingsView() {
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 18px 20px' }}>
         <div style={{ fontSize: 11.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.04em', padding: '12px 2px 6px' }}>外观</div>
         <Row label="深色主题" right={<Switch on={dark} onToggle={() => set({ dark: !dark })} />} />
-        <Row label="紧凑密度" />
+        <Row label="紧凑密度" disabled />
         <div style={{ fontSize: 11.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.04em', padding: '16px 2px 6px' }}>通知</div>
         <Row label="校核结果提醒" right={<Switch on={autoAlert} onToggle={() => set({ autoAlert: !autoAlert })} />} />
-        <Row label="语言 · 简体中文" />
+        <Row label="语言 · 简体中文" disabled />
         <div style={{ fontSize: 11.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.04em', padding: '16px 2px 6px' }}>账户</div>
         <Row label="账户与订阅" onClick={() => set({ drawerView: 'account' })} />
         <div style={{ fontSize: 11.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.04em', padding: '16px 2px 6px' }}>关于</div>
@@ -165,9 +182,9 @@ function LoginView() {
         <div style={{ fontSize: 12, fontWeight: 600, color: M3.textTertiary, marginBottom: 6 }}>密码</div>
         <div style={{ background: M3.surfaceContainer, borderRadius: 12, padding: '12px 14px', fontSize: 13.5, color: M3.text, marginBottom: 20 }}>••••••••</div>
         <div onClick={() => set({ isLoggedIn: true, drawerView: 'account' })} style={{ textAlign: 'center', padding: 13, borderRadius: 14, background: M3.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-          登录
+          登录(演示)
         </div>
-        <div style={{ textAlign: 'center', fontSize: 12.5, color: M3.primary, marginTop: 16, cursor: 'pointer' }}>没有账户?注册</div>
+        <div style={{ textAlign: 'center', fontSize: 12.5, marginTop: 16, ...disabledStyle }}>没有账户?注册</div>
       </div>
     </div>
   );
@@ -220,7 +237,7 @@ function FolderRow({ folder }: { folder: TreeFolder }) {
         <IcFolder size={folder.indent ? 17 : 18} color={M3.primary} />
         <span style={{ fontSize: folder.indent ? 13.5 : 14, color: M3.text, flex: 1 }}>{folder.name}</span>
         {!folder.indent && (
-          <IconButton size={24} onClick={(e) => e.stopPropagation()}>
+          <IconButton size={24} onClick={(e) => e.stopPropagation()} style={disabledStyle}>
             <IcPlus size={14} color={M3.textFaint} />
           </IconButton>
         )}
@@ -236,14 +253,16 @@ function FolderRow({ folder }: { folder: TreeFolder }) {
                 data-testid={f.path ? `nbfile-${f.path.split('/').pop()}` : undefined}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px 9px 70px',
-                  cursor: f.path ? 'pointer' : 'default',
+                  cursor: f.path ? 'pointer' : 'not-allowed',
                   background: active ? M3.primaryContainer : undefined,
                   borderRadius: active ? '0 20px 20px 0' : undefined,
                   marginRight: active ? 8 : undefined,
+                  ...(f.path ? null : disabledStyle),
                 }}
               >
                 <IcFile size={16} color={active ? M3.onPrimaryContainer : M3.textTertiary} />
-                <span style={{ fontSize: 13, color: active ? M3.onPrimaryContainer : M3.textSecondary, fontWeight: active ? 600 : 400 }}>{f.name}</span>
+                <span style={{ fontSize: 13, color: active ? M3.onPrimaryContainer : M3.textSecondary, fontWeight: active ? 600 : 400, flex: 1 }}>{f.name}</span>
+                {!f.path && <ComingSoonTag />}
               </div>
             );
           })}
@@ -285,8 +304,8 @@ function MainView() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 4px 18px' }}>
         <span style={{ fontSize: 11.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.04em' }}>项目</span>
         <div style={{ display: 'flex', gap: 2 }}>
-          <IconButton size={26}><IcFolderPlus size={15} color={M3.textTertiary} /></IconButton>
-          <IconButton size={26}><IcFilePlus size={15} color={M3.textTertiary} /></IconButton>
+          <IconButton size={26} style={disabledStyle}><IcFolderPlus size={15} color={M3.textTertiary} /></IconButton>
+          <IconButton size={26} style={disabledStyle}><IcFilePlus size={15} color={M3.textTertiary} /></IconButton>
         </div>
       </div>
 
@@ -298,7 +317,11 @@ function MainView() {
         { name: 'X波段链路预算.pro.md', when: '1小时前', path: NOTEBOOK_FILES[1].path },
         { name: '简支梁弯矩分析.pro.md', when: '3天前' },
       ].map((f) => (
-        <div key={f.name} onClick={f.path ? () => useStore.getState().openNotebook(f.path!) : undefined} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', cursor: f.path ? 'pointer' : 'default' }}>
+        <div
+          key={f.name}
+          onClick={f.path ? () => useStore.getState().openNotebook(f.path!) : undefined}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', cursor: f.path ? 'pointer' : 'not-allowed', ...(f.path ? null : disabledStyle) }}
+        >
           <IcFile size={16} color={M3.textTertiary} />
           <span style={{ fontSize: 13, color: M3.textSecondary, flex: 1 }}>{f.name}</span>
           <span style={{ fontSize: 11, color: M3.textFaint }}>{f.when}</span>

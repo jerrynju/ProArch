@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { parseProMd } from '../core/promd/parse';
 import { serializeProMd } from '../core/promd/serialize';
-import { KernelSession, makeCell } from '../core/kernel/kernel';
+import { KernelSession, makeCell, dedupeSymbols } from '../core/kernel/kernel';
 import { AgentOrchestrator, type AgentSendMode } from '../core/agent/orchestrator';
 import { ALL_PACKAGES } from '../core/packages/rf';
 import { mergedActions, type ActionDecl } from '../core/actions/registry';
@@ -128,7 +128,6 @@ interface Store {
   actionSubView: null | 'compute' | 'plot';
   actionSubExpanded: boolean;
   quickParamOpen: boolean;
-  chartRunning: boolean;
   agentBusy: boolean;
   agentMode: AgentSendMode;
   slashPanelOpen: boolean;
@@ -137,7 +136,6 @@ interface Store {
   feedIndex: number;
   feedOverview: boolean;
   feedActionMenuOpen: boolean;
-  readCollapsed: boolean;
 
   dark: boolean;
   isLoggedIn: boolean;
@@ -189,7 +187,6 @@ export const useStore = create<Store>((set, get) => ({
   actionSubView: null,
   actionSubExpanded: false,
   quickParamOpen: false,
-  chartRunning: false,
   agentBusy: false,
   agentMode: 'chat',
   slashPanelOpen: false,
@@ -198,7 +195,6 @@ export const useStore = create<Store>((set, get) => ({
   feedIndex: 0,
   feedOverview: false,
   feedActionMenuOpen: false,
-  readCollapsed: false,
 
   dark: false,
   isLoggedIn: true,
@@ -277,9 +273,12 @@ export const useStore = create<Store>((set, get) => ({
     const { notebookPath, selectedCellId } = get();
     const { session } = getBundle(notebookPath);
     const after = selectedCellId ?? session.notebook.cells[session.notebook.cells.length - 1]?.id ?? null;
+    // auto-rename any `let name = …` that would collide with a symbol
+    // already defined elsewhere in the notebook (DAG allows one definer)
+    const source = kind === 'code' ? dedupeSymbols(template, session.definedSymbols()) : template;
     const cell = makeCell(kind === 'code'
-      ? { type: 'code', source: template, lang: 'rhai', title }
-      : { type: 'markdown', source: template });
+      ? { type: 'code', source, lang: 'rhai', title }
+      : { type: 'markdown', source });
     if (title) cell.viewHints = { calc: { title } };
     session.request({ op: 'insert_cell', after, cell });
     set({ actionSubView: null, selectedCellId: cell.id });

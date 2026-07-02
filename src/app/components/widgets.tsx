@@ -62,6 +62,21 @@ const STATE_CHIP: Record<string, { bg: string; color: string; label: string }> =
   pending: { bg: M3.primaryContainer, color: '#4A3B6B', label: '待确认' },
 };
 
+/** Small "coming soon" tag for stub controls that have no real handler yet. */
+export function ComingSoonTag() {
+  return (
+    <span style={{
+      fontSize: 9.5, fontWeight: 700, color: M3.textTertiary, background: M3.surfaceContainer,
+      padding: '2px 7px', borderRadius: 7, flexShrink: 0, whiteSpace: 'nowrap',
+    }}>
+      即将支持
+    </span>
+  );
+}
+
+/** Style patch applied to any disabled/stub control: dims it and swaps the cursor. */
+export const disabledStyle: CSSProperties = { opacity: 0.45, cursor: 'not-allowed' };
+
 export function StateChip({ state }: { state: string }) {
   const m = STATE_CHIP[state] ?? STATE_CHIP.ok;
   return (

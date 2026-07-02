@@ -1,10 +1,10 @@
 import { M3 } from '../theme';
 
 /** Dark code block matching the design's source styling. */
-export function SourceBlock({ source }: { source: string }) {
+export function SourceBlock({ source, flushTop }: { source: string; flushTop?: boolean }) {
   return (
     <div style={{
-      background: M3.codeBg, borderRadius: 12, padding: '12px 14px', marginTop: 6,
+      background: M3.codeBg, borderRadius: flushTop ? '0 0 12px 12px' : 12, padding: '12px 14px', marginTop: flushTop ? 0 : 6,
       fontFamily: "ui-monospace,'SFMono-Regular',Consolas,monospace",
       fontSize: 11.5, lineHeight: 1.7, color: M3.codeText, overflowX: 'auto', whiteSpace: 'pre',
     }}>

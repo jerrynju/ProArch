@@ -6,7 +6,7 @@
 
 import type { Ulid } from '../model/types';
 import { ulid } from '../model/ulid';
-import { fmtNumber, KernelSession } from '../kernel/kernel';
+import { fmtNumber, KernelSession, makeCell, dedupeSymbols } from '../kernel/kernel';
 import type { AgentEvent, CellOp } from '../kernel/protocol';
 
 export type AgentSendMode = 'chat' | 'auto';
@@ -80,6 +80,17 @@ export class AgentOrchestrator {
     return null;
   }
 
+  private latestPlotCell(): { id: Ulid; source: string; title?: string } | null {
+    for (const cell of [...this.session.notebook.cells].reverse()) {
+      if (cell.kind.type !== 'code') continue;
+      const out = this.session.outputs.get(cell.id);
+      if (out?.['application/vnd.proarch.plot+json']) {
+        return { id: cell.id, source: cell.kind.source, title: cell.kind.title };
+      }
+    }
+    return null;
+  }
+
   private async run(turnId: Ulid, req: TurnRequest) {
     try {
       const text = req.text.trim();
@@ -91,6 +102,10 @@ export class AgentOrchestrator {
         await this.verifyTurn(turnId);
       } else if (/解释|explain/.test(text)) {
         await this.explainTurn(turnId, req.cellId);
+      } else if (/优化|optimize/i.test(text)) {
+        await this.optimizeTurn(turnId);
+      } else if (/生成图表|图表|chart/i.test(text)) {
+        await this.plotTurn(turnId);
       } else {
         await this.genericTurn(turnId);
       }
@@ -163,11 +178,15 @@ export class AgentOrchestrator {
       await this.stream(turnId, '这个错误需要人工处理:我没有足够信息推断正确的修复。');
       return;
     }
+    // suffix the derived symbols with the cell id so the fix never collides
+    // with another cell's own W/sigma definitions (DAG rule R1: at most one
+    // definer per symbol notebook-wide)
+    const suf = err.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6) || 'fix';
     const fixed = [
       '// 抗弯截面模量 W = I / c,矩形截面取 c = 12.5 cm',
-      'let W_m3 = (I / 12.5) * 1e-6;',
-      'let sigma = F * 1000.0 * L / W_m3;',
-      'check(sigma <= 235e6, "应力满足 Q235 限值", "应力超限,建议增大截面")',
+      `let W_${suf} = (I / 12.5) * 1e-6;`,
+      `let sigma_${suf} = F * 1000.0 * L / W_${suf};`,
+      `check(sigma_${suf} <= 235e6, "应力满足 Q235 限值", "应力超限,建议增大截面")`,
     ].join('\n');
 
     const c2 = ulid();
@@ -180,6 +199,62 @@ export class AgentOrchestrator {
     const { shadowGeneration } = this.session.proposePending(turnId, ops);
     this.emit(turnId, { k: 'tool_result', callId: c2, ok: true, summary: '修复已生成,等待确认' });
     await this.stream(turnId, '我用截面惯性矩 I 推导出截面模量 W 并重写了应力校核。请在待确认变更中查看修复后的结果。');
+    this.emit(turnId, { k: 'pending_ready', ops, shadowGeneration });
+  }
+
+  /** Read-only turn: analyze the latest check and suggest which param to adjust. */
+  private async optimizeTurn(turnId: Ulid) {
+    const callId = ulid();
+    this.emit(turnId, { k: 'tool_call', callId, tool: 'read_output', summary: '读取校核单元与参数范围' });
+    await sleep(160);
+    const check = this.latestCheck();
+    this.emit(turnId, { k: 'tool_result', callId, ok: !!check, summary: check ? '已获取校核结果' : '未找到校核单元' });
+    if (!check) {
+      await this.stream(turnId, '当前笔记本没有校核单元,无法给出优化建议。');
+      return;
+    }
+    if (check.pass) {
+      await this.stream(turnId, `当前校核已通过(${check.message}),暂无需优化。如需更保守的余量,可以让我切到"自主执行"按活荷载组合放大参数后重新校核。`);
+      return;
+    }
+    const paramCell = this.session.notebook.cells.find(
+      (c) => c.kind.type === 'param' && c.kind.control.kind === 'slider',
+    );
+    if (!paramCell || paramCell.kind.type !== 'param') {
+      await this.stream(turnId, `校核未通过(${check.message}),但笔记本中没有可调整的参数单元。`);
+      return;
+    }
+    const label = paramCell.kind.label ?? paramCell.kind.name;
+    await this.stream(
+      turnId,
+      `校核未通过(${check.message})。建议减小 ${label} 或增大截面刚度相关参数后重新校核;也可以让我切到"自主执行"直接尝试调整并预览结果。`,
+    );
+  }
+
+  /** Propose turn: duplicate the notebook's existing plot cell as a starting chart. */
+  private async plotTurn(turnId: Ulid) {
+    const ref = this.latestPlotCell();
+    if (!ref) {
+      await this.stream(turnId, '当前笔记本没有可参考的曲线单元,无法自动生成图表。可以从"插入 → 绘图"手动选择模板。');
+      return;
+    }
+    const c1 = ulid();
+    this.emit(turnId, { k: 'tool_call', callId: c1, tool: 'read_cell', summary: '参考已有绘图单元' });
+    await sleep(140);
+    this.emit(turnId, { k: 'tool_result', callId: c1, ok: true, summary: '已读取' });
+
+    // duplicating a cell verbatim would redefine its `let` bindings twice —
+    // rename the copy's symbols so both cells coexist under DAG rule R1
+    const source = dedupeSymbols(ref.source, this.session.definedSymbols());
+    const cell = makeCell({ type: 'code', source, lang: 'rhai', title: `${ref.title ?? '曲线'} · 副本` });
+    cell.viewHints = { calc: { title: cell.kind.type === 'code' ? cell.kind.title : undefined, icon: 'plot' } };
+
+    const c2 = ulid();
+    this.emit(turnId, { k: 'tool_call', callId: c2, tool: 'insert_cell', summary: '插入新的图表单元' });
+    const ops: CellOp[] = [{ t: 'insert', after: ref.id, cell }];
+    const { shadowGeneration } = this.session.proposePending(turnId, ops);
+    this.emit(turnId, { k: 'tool_result', callId: c2, ok: true, summary: '图表已生成,等待确认' });
+    await this.stream(turnId, `我基于笔记本现有参数补充了一张图表(${cell.kind.type === 'code' ? cell.kind.title : ''})。请在待确认变更中查看并接受。`);
     this.emit(turnId, { k: 'pending_ready', ops, shadowGeneration });
   }
 
