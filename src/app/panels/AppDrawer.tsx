@@ -334,20 +334,26 @@ export function AppDrawer() {
   return (
     <>
       <Scrim open={drawerOpen} onClick={() => set({ drawerOpen: false })} />
-      <div
-        data-testid="drawer"
-        style={{
-          position: 'absolute', top: 0, left: drawerOpen ? 0 : -300, bottom: 0, width: 300, background: '#FFFFFF',
-          zIndex: 46, boxShadow: drawerOpen ? '2px 0 16px rgba(0,0,0,.2)' : 'none',
-          overflowY: 'auto', display: 'flex', flexDirection: 'column', transition: 'left .22s ease',
-        }}
-      >
-        {drawerView === 'main' && <MainView />}
-        {drawerView === 'account' && <AccountView />}
-        {drawerView === 'favorites' && <FavoritesView />}
-        {drawerView === 'newProject' && <NewProjectView />}
-        {drawerView === 'settings' && <SettingsView />}
-        {drawerView === 'login' && <LoginView />}
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 46 }}>
+        <div
+          data-testid="drawer"
+          style={{
+            position: 'absolute', top: 0, left: 0, bottom: 0, width: 300, background: '#FFFFFF',
+            boxShadow: drawerOpen ? '2px 0 16px rgba(0,0,0,.2)' : 'none',
+            overflowY: 'auto', display: 'flex', flexDirection: 'column',
+            pointerEvents: drawerOpen ? 'auto' : 'none',
+            transform: drawerOpen ? 'translateX(0)' : 'translateX(-105%)',
+            visibility: drawerOpen ? 'visible' : 'hidden',
+            transition: 'transform .22s ease, visibility .22s',
+          }}
+        >
+          {drawerView === 'main' && <MainView />}
+          {drawerView === 'account' && <AccountView />}
+          {drawerView === 'favorites' && <FavoritesView />}
+          {drawerView === 'newProject' && <NewProjectView />}
+          {drawerView === 'settings' && <SettingsView />}
+          {drawerView === 'login' && <LoginView />}
+        </div>
       </div>
     </>
   );

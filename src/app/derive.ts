@@ -51,10 +51,10 @@ function paramsSummary(params: Cell[]): string {
 }
 
 function plotSummary(plot: PlotSpec): string {
-  const maxAbs = plot.y.reduce((m, v) => (Math.abs(v) > Math.abs(m) ? v : m), 0);
+  const peak = Math.max(...plot.y);
   const m = /^(.*?)\s*\((.+)\)\s*$/.exec(plot.yLabel ?? '');
-  if (m) return `峰值${m[1]} = ${fmtNumber(maxAbs)} ${m[2]}`;
-  return `峰值 ${fmtNumber(maxAbs)}`;
+  if (m) return `峰值${m[1]} = ${fmtNumber(peak)} ${m[2]}`;
+  return `峰值 ${fmtNumber(peak)}`;
 }
 
 export function deriveCards(session: KernelSession): RenderCard[] {

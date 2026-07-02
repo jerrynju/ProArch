@@ -105,16 +105,26 @@ export function Scrim({ open, onClick, z = 45, bottomInset = 0 }: { open: boolea
 }
 
 export function BottomSheet({ open, height = '70%', children, testId }: { open: boolean; height?: string; children: ReactNode; testId?: string }) {
+  // The parked (closed) sheet is clipped by a zero-overflow wrapper so the
+  // content area never gains scrollable overflow — otherwise browser-driven
+  // scrolling (click scroll-into-view, scroll anchoring) can silently scroll
+  // the overflow-hidden content area and shift every bottom-anchored layer.
   return (
-    <div
-      data-testid={testId}
-      style={{
-        position: 'absolute', left: 0, right: 0, bottom: open ? 0 : -900, height, background: '#FFFFFF',
-        borderRadius: '20px 20px 0 0', zIndex: 46, boxShadow: '0 -6px 24px rgba(0,0,0,.2)',
-        display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'bottom .22s ease',
-      }}
-    >
-      {children}
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 46 }}>
+      <div
+        data-testid={testId}
+        style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0, height, background: '#FFFFFF',
+          borderRadius: '20px 20px 0 0', boxShadow: '0 -6px 24px rgba(0,0,0,.2)',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          pointerEvents: open ? 'auto' : 'none',
+          transform: open ? 'translateY(0)' : 'translateY(110%)',
+          visibility: open ? 'visible' : 'hidden',
+          transition: 'transform .22s ease, visibility .22s',
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }

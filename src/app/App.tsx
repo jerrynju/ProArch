@@ -106,7 +106,7 @@ export default function App() {
         </div>
 
         {/* content area */}
-        <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', background: shell.contentBg }}>
+        <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', overflowAnchor: 'none', background: shell.contentBg }}>
           {mode === 'home' && <HomeView />}
           {mode === 'calc' && (
             <>

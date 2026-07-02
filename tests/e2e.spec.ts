@@ -82,11 +82,13 @@ test.describe('ProArch engineering notebook', () => {
     // rf package function fspl evaluated: Pr ≈ -66.94 dBm
     await expect(page.getByTestId('result-rf-compute')).toHaveText(/-66\.9\d?\s*dBm/);
     await expect(page.getByTestId('check-rf-verify')).toContainText('通过');
+    await page.waitForTimeout(400); // let the drawer slide-out finish before capturing
     await shot(page, '07-rf-calc');
 
     // long distance → link margin fails
     await setRange(page, '链路距离 d', 50);
     await expect(page.getByTestId('check-rf-verify')).toContainText('未通过');
+    await page.waitForTimeout(400);
     await shot(page, '08-rf-fail');
   });
 
