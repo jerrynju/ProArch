@@ -84,6 +84,9 @@ export interface CalcHints {
   title?: string;
   icon?: string;
   placeholder?: boolean;
+  /** ProArch extra: secondary readout next to the main result
+   * (e.g. the L/250 limit), resolved from a kernel symbol */
+  aside?: { label: string; symbol: string; unit?: string };
 }
 
 export function paramValueToNumber(v: ParamValue): number {

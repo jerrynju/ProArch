@@ -8,7 +8,7 @@ import type { AgentEvent } from '../src/core/kernel/protocol';
 const load = () =>
   parseProMd(readFileSync(new URL('../notebooks/cantilever-beam.pro.md', import.meta.url), 'utf8')).notebook;
 
-function runTurn(session: KernelSession, agent: AgentOrchestrator, text: string, mode: 'chat' | 'auto') {
+function runTurn(agent: AgentOrchestrator, text: string, mode: 'chat' | 'auto') {
   return new Promise<AgentEvent[]>((resolve) => {
     const events: AgentEvent[] = [];
     const unsub = agent.subscribe((e) => {
@@ -28,7 +28,7 @@ describe('scripted agent turns', () => {
     const agent = new AgentOrchestrator(session);
     expect(session.errors.get('beam-material')?.kind).toBe('undefined_symbol');
 
-    const events = await runTurn(session, agent, '修复该错误', 'chat');
+    const events = await runTurn(agent, '修复该错误', 'chat');
     const pending = events.find((e) => e.kind.k === 'pending_ready');
     expect(pending).toBeDefined();
     expect(session.pending?.ops[0].t).toBe('update');
@@ -45,7 +45,7 @@ describe('scripted agent turns', () => {
   it('reject_all leaves the notebook untouched', async () => {
     const session = new KernelSession(load());
     const agent = new AgentOrchestrator(session);
-    await runTurn(session, agent, '', 'auto');
+    await runTurn(agent, '', 'auto');
     const before = session.cellById('beam-params-F')!;
     expect(session.pending).not.toBeNull();
     session.resolvePending({ d: 'reject_all' });
@@ -55,7 +55,7 @@ describe('scripted agent turns', () => {
   it('auto-execute proposes a param bump; undo_turn reverts it', async () => {
     const session = new KernelSession(load());
     const agent = new AgentOrchestrator(session);
-    const events = await runTurn(session, agent, '', 'auto');
+    const events = await runTurn(agent, '', 'auto');
     const turnId = events[0].turnId;
     session.resolvePending({ d: 'accept_all' });
     const f = session.cellById('beam-params-F')!;
@@ -68,7 +68,7 @@ describe('scripted agent turns', () => {
   it('verify turn answers from live kernel outputs', async () => {
     const session = new KernelSession(load());
     const agent = new AgentOrchestrator(session);
-    const events = await runTurn(session, agent, '当前参数是否满足规范要求?', 'chat');
+    const events = await runTurn(agent, '当前参数是否满足规范要求?', 'chat');
     const text = events.filter((e) => e.kind.k === 'delta').map((e) => (e.kind as { text: string }).text).join('');
     expect(text).toContain('通过');
     expect(text).toContain('mm');

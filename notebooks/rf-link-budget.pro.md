@@ -11,7 +11,7 @@ view_hints:
   rf-params-freq: { calc: { group: budget } }
   rf-params-dist: { calc: { group: budget } }
   rf-params-gain: { calc: { group: budget } }
-  rf-compute: { calc: { group: budget, title: 链路预算, icon: calc } }
+  rf-compute: { calc: { group: budget, title: 链路预算, icon: calc, aside: { label: 接收灵敏度, symbol: sensitivity, unit: dBm } } }
   rf-plot: { calc: { title: 接收功率-距离曲线, icon: plot } }
   rf-verify: { calc: { title: 链路余量校核, icon: check } }
 ---

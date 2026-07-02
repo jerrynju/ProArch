@@ -10,7 +10,7 @@ view_hints:
   beam-params-L: { calc: { group: deflection } }
   beam-params-I: { calc: { group: deflection } }
   beam-params-E: { calc: { group: deflection } }
-  beam-compute: { calc: { group: deflection, title: 挠度计算, icon: calc } }
+  beam-compute: { calc: { group: deflection, title: 挠度计算, icon: calc, aside: { label: 限值 L/250, symbol: allowable_mm, unit: mm } } }
   beam-plot: { calc: { title: 挠度曲线, icon: plot } }
   beam-verify: { calc: { title: 规范校核, icon: check } }
   beam-material: { calc: { title: 材料应力校核, icon: check } }
