@@ -46,5 +46,3 @@ export const rfPackage: DomainPackage = {
     wavelength: '`wavelength(f)` — 波长 (m),f: 频率 (Hz)。',
   },
 };
-
-export const ALL_PACKAGES: DomainPackage[] = [rfPackage];

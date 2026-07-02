@@ -1,5 +1,5 @@
 import { M3 } from '../theme';
-import { getBundle, NOTEBOOK_FILES, useStore } from '../store';
+import { getBundle, useStore } from '../store';
 import { deriveCards } from '../derive';
 import { IcSparkle, IcStar, IcTrend } from '../components/icons';
 
@@ -9,11 +9,11 @@ const CONVERSATIONS = [
 ];
 
 export function HomeView() {
-  const { openNotebook, set } = useStore();
+  const { openNotebook, set, files } = useStore();
   useStore((s) => s.tick);
   const isLoggedIn = useStore((s) => s.isLoggedIn);
 
-  const summaries = NOTEBOOK_FILES.map((f) => {
+  const summaries = files.map((f) => {
     const b = getBundle(f.path);
     const cards = deriveCards(b.session);
     const compute = cards.find((c) => c.kind === 'compute');
@@ -31,7 +31,7 @@ export function HomeView() {
           <div
             key={c.title}
             onClick={() => {
-              openNotebook(NOTEBOOK_FILES[i]?.path ?? NOTEBOOK_FILES[0].path, 'calc');
+              openNotebook(files[i]?.path ?? files[0].path, 'calc');
               set({ actionMode: 'chat', actionExpanded: true, actionSubView: null });
             }}
             style={{ flexShrink: 0, width: 190, background: M3.surfaceContainer, borderRadius: 16, padding: 14, cursor: 'pointer' }}
@@ -69,7 +69,7 @@ export function HomeView() {
 
       <div style={{ fontSize: 12, fontWeight: 600, color: M3.textTertiary, margin: '22px 0 10px' }}>收藏</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        {NOTEBOOK_FILES.map((f) => (
+        {files.slice(0, 4).map((f) => (
           <div key={f.path} onClick={() => openNotebook(f.path, 'calc')} style={{ background: '#FFFFFF', border: `1px solid ${M3.outline}`, borderRadius: 14, padding: 12, cursor: 'pointer' }}>
             <IcStar size={15} />
             <div style={{ fontSize: 12.5, fontWeight: 600, color: M3.text, marginTop: 8 }}>{f.fileName}</div>

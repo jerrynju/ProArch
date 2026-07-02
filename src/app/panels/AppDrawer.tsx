@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { M3 } from '../theme';
 import { NOTEBOOK_FILES, useStore } from '../store';
 import { ComingSoonTag, disabledStyle, IconButton, Scrim, Switch } from '../components/widgets';
@@ -93,17 +93,23 @@ function FavoritesView() {
 }
 
 function NewProjectView() {
-  const { set, openNotebook } = useStore();
+  const { set, openNotebook, createBlankNotebook, importNotebookRaw } = useStore();
+  const fileInput = useRef<HTMLInputElement>(null);
   const templates = [
     { name: '悬臂梁挠度分析', sub: '结构力学模板', bg: 'linear-gradient(135deg,#EADDFF,#D0BCFF)', path: NOTEBOOK_FILES[0].path },
     { name: 'X 波段链路预算', sub: 'rf 域包模板', bg: 'linear-gradient(135deg,#C8E6C9,#8FCB93)', path: NOTEBOOK_FILES[1].path },
-    { name: '应力校核清单', sub: '通用校核模板', bg: 'linear-gradient(135deg,#FFD8E4,#F3A6BE)' },
+    { name: '应力校核清单', sub: '通用校核模板', bg: 'linear-gradient(135deg,#FFD8E4,#F3A6BE)', path: NOTEBOOK_FILES[4].path },
+    { name: 'RC 电路暂态响应', sub: 'circuit 域包模板', bg: 'linear-gradient(135deg,#FFE0B2,#F3C078)', path: NOTEBOOK_FILES[3].path },
   ];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <SubHeader title="新建项目" onBack={() => set({ drawerView: 'main' })} />
       <div style={{ flex: 1, overflowY: 'auto', padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: M3.surfaceLow, borderRadius: 16, padding: 16, ...disabledStyle }}>
+        <div
+          onClick={() => createBlankNotebook()}
+          data-testid="new-blank-notebook"
+          style={{ display: 'flex', alignItems: 'center', gap: 14, background: M3.surfaceLow, borderRadius: 16, padding: 16, cursor: 'pointer' }}
+        >
           <div style={{ width: 42, height: 42, borderRadius: 12, background: M3.primaryContainer, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: M3.onPrimaryContainer }}>
             <IcPlus size={20} />
           </div>
@@ -111,27 +117,40 @@ function NewProjectView() {
             <div style={{ fontSize: 14, fontWeight: 600, color: M3.text }}>新建空白项目</div>
             <div style={{ fontSize: 12, color: M3.textTertiary, marginTop: 2 }}>从一张空白 .pro.md 笔记本开始</div>
           </div>
-          <ComingSoonTag />
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: M3.surfaceLow, borderRadius: 16, padding: 16, ...disabledStyle }}>
+        <div
+          onClick={() => fileInput.current?.click()}
+          data-testid="import-notebook"
+          style={{ display: 'flex', alignItems: 'center', gap: 14, background: M3.surfaceLow, borderRadius: 16, padding: 16, cursor: 'pointer' }}
+        >
           <div style={{ width: 42, height: 42, borderRadius: 12, background: M3.secondaryContainer, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: M3.onSecondaryContainer }}>
             <IcUpload size={20} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: M3.text }}>导入项目</div>
-            <div style={{ fontSize: 12, color: M3.textTertiary, marginTop: 2 }}>从文件或其他工具导入</div>
+            <div style={{ fontSize: 12, color: M3.textTertiary, marginTop: 2 }}>选择本地 .pro.md 文件导入</div>
           </div>
-          <ComingSoonTag />
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".md,.markdown,text/markdown"
+            style={{ display: 'none' }}
+            onClick={(e) => e.stopPropagation()}
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) importNotebookRaw(f.name, await f.text());
+            }}
+          />
         </div>
         <div style={{ fontSize: 11.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.04em', padding: '10px 2px 2px' }}>从模板新建</div>
         {templates.map((t) => (
           <div
             key={t.name}
-            onClick={t.path ? () => openNotebook(t.path!) : undefined}
+            onClick={() => openNotebook(t.path)}
             style={{
               display: 'flex', alignItems: 'center', gap: 14, background: '#FFFFFF', border: `1px solid ${M3.outline}`,
-              borderRadius: 16, padding: 14, cursor: t.path ? 'pointer' : 'not-allowed',
-              ...(t.path ? null : disabledStyle),
+              borderRadius: 16, padding: 14, cursor: 'pointer',
             }}
           >
             <div style={{ width: 38, height: 38, borderRadius: 10, background: t.bg, flexShrink: 0 }} />
@@ -139,7 +158,6 @@ function NewProjectView() {
               <div style={{ fontSize: 13.5, fontWeight: 600, color: M3.text }}>{t.name}</div>
               <div style={{ fontSize: 11.5, color: M3.textTertiary, marginTop: 1 }}>{t.sub}</div>
             </div>
-            {!t.path && <ComingSoonTag />}
           </div>
         ))}
       </div>
@@ -191,37 +209,27 @@ function LoginView() {
 }
 
 interface TreeFolder {
-  key: string;
+  key: string; // matches NotebookFile.project — folder contents derive from the registry
   name: string;
   indent?: boolean;
-  files: { name: string; path?: string; recency?: string }[];
   subfolders?: TreeFolder[];
 }
 
 const TREE: TreeFolder[] = [
   {
     key: 'stru', name: '结构分析',
-    files: [],
     subfolders: [
-      { key: 'beam', name: '梁与桁架', indent: true, files: [
-        { name: '悬臂梁挠度.pro.md', path: NOTEBOOK_FILES[0].path },
-        { name: '简支梁弯矩分析.pro.md' },
-      ] },
-      { key: 'column', name: '柱与稳定性', indent: true, files: [] },
+      { key: 'beam', name: '梁与桁架', indent: true },
+      { key: 'column', name: '柱与稳定性', indent: true },
     ],
   },
-  {
-    key: 'rfcomm', name: '射频通信',
-    files: [{ name: 'X波段链路预算.pro.md', path: NOTEBOOK_FILES[1].path }],
-  },
-  {
-    key: 'circuit', name: '电路仿真',
-    files: [{ name: 'RC电路暂态响应.pro.md' }],
-  },
+  { key: 'rfcomm', name: '射频通信' },
+  { key: 'circuit', name: '电路仿真' },
 ];
 
 function FolderRow({ folder }: { folder: TreeFolder }) {
-  const { folderOpen, set, openNotebook, notebookPath } = useStore();
+  const { folderOpen, set, openNotebook, notebookPath, createBlankNotebook } = useStore();
+  const files = useStore((s) => s.files).filter((f) => f.project === folder.key);
   const open = folderOpen[folder.key];
   const pad = folder.indent ? '10px 18px 10px 44px' : '11px 18px';
   return (
@@ -237,32 +245,34 @@ function FolderRow({ folder }: { folder: TreeFolder }) {
         <IcFolder size={folder.indent ? 17 : 18} color={M3.primary} />
         <span style={{ fontSize: folder.indent ? 13.5 : 14, color: M3.text, flex: 1 }}>{folder.name}</span>
         {!folder.indent && (
-          <IconButton size={24} onClick={(e) => e.stopPropagation()} style={disabledStyle}>
-            <IcPlus size={14} color={M3.textFaint} />
+          <IconButton
+            size={24}
+            onClick={(e) => { e.stopPropagation(); createBlankNotebook(folder.key); }}
+            testId={`folder-add-${folder.key}`}
+          >
+            <IcPlus size={14} color={M3.textTertiary} />
           </IconButton>
         )}
       </div>
       {open && (
         <>
-          {folder.files.map((f) => {
+          {files.map((f) => {
             const active = f.path === notebookPath;
             return (
               <div
-                key={f.name}
-                onClick={f.path ? () => openNotebook(f.path!) : undefined}
-                data-testid={f.path ? `nbfile-${f.path.split('/').pop()}` : undefined}
+                key={f.path}
+                onClick={() => openNotebook(f.path)}
+                data-testid={`nbfile-${f.path.split('/').pop()}`}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px 9px 70px',
-                  cursor: f.path ? 'pointer' : 'not-allowed',
+                  cursor: 'pointer',
                   background: active ? M3.primaryContainer : undefined,
                   borderRadius: active ? '0 20px 20px 0' : undefined,
                   marginRight: active ? 8 : undefined,
-                  ...(f.path ? null : disabledStyle),
                 }}
               >
                 <IcFile size={16} color={active ? M3.onPrimaryContainer : M3.textTertiary} />
-                <span style={{ fontSize: 13, color: active ? M3.onPrimaryContainer : M3.textSecondary, fontWeight: active ? 600 : 400, flex: 1 }}>{f.name}</span>
-                {!f.path && <ComingSoonTag />}
+                <span style={{ fontSize: 13, color: active ? M3.onPrimaryContainer : M3.textSecondary, fontWeight: active ? 600 : 400, flex: 1 }}>{f.fileName}</span>
               </div>
             );
           })}
@@ -274,7 +284,9 @@ function FolderRow({ folder }: { folder: TreeFolder }) {
 }
 
 function MainView() {
-  const { isLoggedIn, dark, showUpdateInfo, set } = useStore();
+  const { isLoggedIn, dark, showUpdateInfo, set, files } = useStore();
+  const hasLocal = files.some((f) => f.project === 'local');
+  const recent = [...files.filter((f) => f.recency === '刚刚').reverse(), ...files.filter((f) => f.recency !== '刚刚')].slice(0, 5);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
       <div onClick={() => set({ drawerView: 'account' })} style={{ padding: '20px 18px 16px', borderBottom: `1px solid ${M3.surfaceContainer}`, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} data-testid="drawer-account">
@@ -304,27 +316,28 @@ function MainView() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 4px 18px' }}>
         <span style={{ fontSize: 11.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.04em' }}>项目</span>
         <div style={{ display: 'flex', gap: 2 }}>
-          <IconButton size={26} style={disabledStyle}><IcFolderPlus size={15} color={M3.textTertiary} /></IconButton>
-          <IconButton size={26} style={disabledStyle}><IcFilePlus size={15} color={M3.textTertiary} /></IconButton>
+          <IconButton size={26} onClick={() => useStore.getState().createBlankNotebook()} testId="tree-new-folder">
+            <IcFolderPlus size={15} color={M3.textTertiary} />
+          </IconButton>
+          <IconButton size={26} onClick={() => set({ drawerView: 'newProject' })} testId="tree-new-file">
+            <IcFilePlus size={15} color={M3.textTertiary} />
+          </IconButton>
         </div>
       </div>
 
       {TREE.map((f) => <FolderRow key={f.key} folder={f} />)}
+      {hasLocal && <FolderRow folder={{ key: 'local', name: '我的项目' }} />}
 
       <div style={{ fontSize: 11.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.04em', padding: '16px 18px 4px' }}>最近打开</div>
-      {[
-        { name: '悬臂梁挠度.pro.md', when: '2分钟前', path: NOTEBOOK_FILES[0].path },
-        { name: 'X波段链路预算.pro.md', when: '1小时前', path: NOTEBOOK_FILES[1].path },
-        { name: '简支梁弯矩分析.pro.md', when: '3天前' },
-      ].map((f) => (
+      {recent.map((f) => (
         <div
-          key={f.name}
-          onClick={f.path ? () => useStore.getState().openNotebook(f.path!) : undefined}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', cursor: f.path ? 'pointer' : 'not-allowed', ...(f.path ? null : disabledStyle) }}
+          key={f.path}
+          onClick={() => useStore.getState().openNotebook(f.path)}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', cursor: 'pointer' }}
         >
           <IcFile size={16} color={M3.textTertiary} />
-          <span style={{ fontSize: 13, color: M3.textSecondary, flex: 1 }}>{f.name}</span>
-          <span style={{ fontSize: 11, color: M3.textFaint }}>{f.when}</span>
+          <span style={{ fontSize: 13, color: M3.textSecondary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.fileName}</span>
+          <span style={{ fontSize: 11, color: M3.textFaint, flexShrink: 0 }}>{f.recency}</span>
         </div>
       ))}
 

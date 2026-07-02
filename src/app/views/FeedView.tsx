@@ -204,10 +204,18 @@ export function FeedView({ shell }: { shell: ShellTheme }) {
           </IconButton>
           {feedActionMenuOpen && (
             <div style={{ position: 'absolute', right: 52, bottom: 0, background: '#FFFFFF', borderRadius: 14, boxShadow: '0 6px 20px rgba(0,0,0,.2)', padding: 6, minWidth: 160 }}>
-              {['添加批注', '分享该卡片', '导出为图片'].map((t) => (
-                <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', fontSize: 12.5, color: M3.text, borderRadius: 8, whiteSpace: 'nowrap', ...disabledStyle }}>
-                  <span style={{ flex: 1 }}>{t}</span>
-                  <ComingSoonTag />
+              {([
+                { label: '添加批注' },
+                { label: '分享该卡片', run: () => { set({ feedActionMenuOpen: false }); useStore.getState().shareNotebook(); } },
+                { label: '导出为图片' },
+              ] as { label: string; run?: () => void }[]).map((t) => (
+                <div
+                  key={t.label}
+                  onClick={t.run}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', fontSize: 12.5, color: M3.text, borderRadius: 8, whiteSpace: 'nowrap', cursor: t.run ? 'pointer' : 'not-allowed', ...(t.run ? null : disabledStyle) }}
+                >
+                  <span style={{ flex: 1 }}>{t.label}</span>
+                  {!t.run && <ComingSoonTag />}
                 </div>
               ))}
             </div>

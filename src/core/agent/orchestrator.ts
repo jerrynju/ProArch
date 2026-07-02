@@ -54,13 +54,20 @@ export class AgentOrchestrator {
 
   // ---- live kernel readings the scripts answer from ----
 
-  private latestCheck(): { pass: boolean; message: string } | null {
-    for (const cell of [...this.session.notebook.cells].reverse()) {
-      const out = this.session.outputs.get(cell.id);
-      const check = out?.['application/vnd.proarch.check+json'];
-      if (check) return check;
+  /** every check-cell output in document order */
+  private allChecks(): { pass: boolean; message: string }[] {
+    const checks: { pass: boolean; message: string }[] = [];
+    for (const cell of this.session.notebook.cells) {
+      const check = this.session.outputs.get(cell.id)?.['application/vnd.proarch.check+json'];
+      if (check) checks.push(check);
     }
-    return null;
+    return checks;
+  }
+
+  /** the check that matters most right now: first failing one, else the last */
+  private latestCheck(): { pass: boolean; message: string } | null {
+    const checks = this.allChecks();
+    return checks.find((c) => !c.pass) ?? checks[checks.length - 1] ?? null;
   }
 
   private latestQuantity(): { value: number; unit: string } | null {
@@ -121,15 +128,21 @@ export class AgentOrchestrator {
     const callId = ulid();
     this.emit(turnId, { k: 'tool_call', callId, tool: 'read_output', summary: '读取校核单元输出' });
     await sleep(160);
-    const check = this.latestCheck();
+    const checks = this.allChecks();
     const q = this.latestQuantity();
-    this.emit(turnId, { k: 'tool_result', callId, ok: !!check, summary: check ? '已获取最新校核结果' : '未找到校核单元' });
-    if (!check) {
+    this.emit(turnId, { k: 'tool_result', callId, ok: checks.length > 0, summary: checks.length > 0 ? '已获取最新校核结果' : '未找到校核单元' });
+    if (checks.length === 0) {
       await this.stream(turnId, '当前笔记本没有校核单元。可以用 /verify 插入一个规范校核。');
       return;
     }
+    const passed = checks.filter((c) => c.pass).length;
     const head = q ? `当前计算结果为 ${fmtNumber(q.value)} ${q.unit}。` : '';
-    await this.stream(turnId, `${head}校核结论:${check.message}。${check.pass ? '所有指标在限值以内,无需调整。' : '建议减小荷载或增大截面刚度后重新校核。'}`);
+    const detail = checks.map((c) => c.message).join(';');
+    await this.stream(
+      turnId,
+      `${head}校核结论(${passed}/${checks.length} 项通过):${detail}。`
+      + (passed === checks.length ? '所有指标在限值以内,无需调整。' : '建议减小荷载或增大截面刚度后重新校核。'),
+    );
   }
 
   private async explainTurn(turnId: Ulid, cellId?: Ulid) {

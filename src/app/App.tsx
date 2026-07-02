@@ -25,14 +25,14 @@ const BUSY_RING: CSSProperties = {
 };
 
 function MoreMenu() {
-  const { moreMenuOpen, set, exportNotebook, exportScript } = useStore();
+  const { moreMenuOpen, set, exportNotebook, exportScript, shareNotebook, copyNotebookLink } = useStore();
   const entries: { label: string; icon: React.ReactNode; run?: () => void }[] = [
     { label: '查看 Artifacts', icon: <IcBookmark size={16} color={M3.textSecondary} />, run: () => set({ artifactsOpen: true, moreMenuOpen: false }) },
     { label: '导出为 PDF', icon: <IcDownload size={16} color={M3.textSecondary} />, run: () => { set({ moreMenuOpen: false }); window.print(); } },
     { label: '导出脚本 (.m)', icon: <IcCode size={16} color={M3.textSecondary} />, run: () => { set({ moreMenuOpen: false }); exportScript(); } },
     { label: '导出笔记本 (.pro.md)', icon: <IcDownload size={16} color={M3.textSecondary} />, run: () => { set({ moreMenuOpen: false }); exportNotebook(); } },
-    { label: '分享给协作者', icon: <IcShare size={16} color={M3.textSecondary} /> },
-    { label: '复制链接', icon: <IcCopyLink size={16} color={M3.textSecondary} /> },
+    { label: '分享给协作者', icon: <IcShare size={16} color={M3.textSecondary} />, run: shareNotebook },
+    { label: '复制链接', icon: <IcCopyLink size={16} color={M3.textSecondary} />, run: copyNotebookLink },
   ];
   return (
     <div style={{
@@ -56,6 +56,25 @@ function MoreMenu() {
           {!e.run && <ComingSoonTag />}
         </div>
       ))}
+    </div>
+  );
+}
+
+/** M3 snackbar — transient confirmations for share/copy/create actions. */
+function Toast() {
+  const toast = useStore((s) => s.toast);
+  return (
+    <div
+      data-testid="toast"
+      style={{
+        position: 'absolute', bottom: 88, left: '50%', transform: `translate(-50%, ${toast ? 0 : 8}px)`,
+        background: '#322F35', color: '#F5EFF7', padding: '11px 18px', borderRadius: 10,
+        fontSize: 12.5, zIndex: 60, boxShadow: '0 4px 14px rgba(0,0,0,.32)', maxWidth: '82%',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', pointerEvents: 'none',
+        opacity: toast ? 1 : 0, transition: 'opacity .18s, transform .18s',
+      }}
+    >
+      {toast ?? ''}
     </div>
   );
 }
@@ -158,6 +177,7 @@ export default function App() {
           <AgentsSheet />
           <ArtifactsSheet />
           <PendingSheet />
+          <Toast />
         </div>
 
         {/* gesture-nav / bottom system bar safe area */}

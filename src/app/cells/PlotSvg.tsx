@@ -41,6 +41,34 @@ export function PlotSvg({ plot, strokeWidth = 2.5, height = 110 }: { plot: PlotS
     );
   }
 
+  if (plot.plotType === 'bar') {
+    const barW = Math.min(28, (W - 2 * padX) / (xs.length * 1.8));
+    const baseY = sy(Math.max(yMin, 0));
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={height} data-testid="plot-svg">
+        <line x1={padX} y1={baseY} x2={W - padX} y2={baseY} stroke={M3.outlineDim} strokeWidth={1} />
+        {plot.refY !== undefined && (
+          <line x1={padX} y1={sy(plot.refY)} x2={W - padX} y2={sy(plot.refY)} stroke={M3.error} strokeWidth={1} strokeDasharray="4 3" opacity={0.55} />
+        )}
+        {xs.map((x, i) => {
+          const top = sy(ys[i]);
+          return (
+            <g key={i}>
+              <rect
+                x={sx(x) - barW / 2} y={Math.min(top, baseY)}
+                width={barW} height={Math.max(2, Math.abs(baseY - top))}
+                rx={3} fill={M3.primary} opacity={i === xs.length - 1 ? 1 : 0.65}
+              />
+              <text x={sx(x)} y={Math.min(top, baseY) - 4} textAnchor="middle" fontSize={8.5} fill={M3.textSecondary}>
+                {fmtNumber(ys[i])}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={height} data-testid="plot-svg">
       {hangs && <line x1={padX} y1={padY} x2={W - padX} y2={padY} stroke={M3.outlineDim} strokeWidth={1} strokeDasharray="3 3" />}

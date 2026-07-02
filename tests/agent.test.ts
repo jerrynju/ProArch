@@ -76,9 +76,9 @@ describe('scripted agent turns', () => {
     const agent = new AgentOrchestrator(session);
     const events = await runTurn(agent, '当前参数是否满足规范要求?', 'chat');
     const text = events.filter((e) => e.kind.k === 'delta').map((e) => (e.kind as { text: string }).text).join('');
-    // verifyTurn reports the notebook's last check cell — with the default
-    // notebook now loading clean, that's beam-material (材料应力校核)
+    // verifyTurn summarizes every check cell (规范校核 + 材料应力校核)
     expect(text).toContain('满足');
+    expect(text).toContain('2/2 项通过');
     expect(text).toContain('mm');
   });
 });
