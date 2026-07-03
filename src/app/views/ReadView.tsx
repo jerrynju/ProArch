@@ -1,19 +1,65 @@
-// Read mode: a continuous document flow (Obsidian-style), not a table of
-// contents. Markdown renders as prose, code cells fold into a small "查看
-// 源码" toggle by default (spec: ReadHints.collapsed), and compute/plot/check
-// outputs are embedded inline instead of routed through a list-row tap.
-import { useRef, useState } from 'react';
+// Read mode: a continuous document flow (Obsidian-style), with document
+// properties and a shared bottom toolbar for cross-view navigation.
+import { useCallback, useRef, useState } from 'react';
 import { M3 } from '../theme';
-import { useSession, useStore } from '../store';
+import { NOTEBOOK_FILES, useSession, useStore } from '../store';
 import { deriveCards } from '../derive';
-import { fmtNumber } from '../../core/kernel/kernel';
-import { IconButton, StateChip } from '../components/widgets';
+import { fmtNumber, type KernelSession } from '../../core/kernel/kernel';
+import { IconButton, SegTab, StateChip, ToolbarShell } from '../components/widgets';
 import { SourceBlock } from '../cells/SourceBlock';
 import { PlotSvg } from '../cells/PlotSvg';
 import { MarkdownFlow } from '../cells/MarkdownInline';
-import { IcArrowUp, IcCheckCircle, IcChevronDown, IcPencil, IcWrench, IcXCircle } from '../components/icons';
+import { useMeasuredHeight } from '../hooks/useMeasuredHeight';
+import {
+  IcArrowUp, IcCheckCircle, IcChevronDown, IcFile, IcPencil, IcWrench, IcXCircle,
+} from '../components/icons';
 import type { RenderCard } from '../derive';
 import type { Cell } from '../../core/model/types';
+
+function PropertiesCard({ session }: { session: KernelSession }) {
+  const [open, setOpen] = useState(true);
+  const nb = session.notebook;
+  const file = NOTEBOOK_FILES.find((f) => f.path === useStore.getState().notebookPath);
+  const counts = { code: 0, param: 0, markdown: 0, other: 0 };
+  for (const c of nb.cells) {
+    if (c.kind.type === 'code') counts.code += 1;
+    else if (c.kind.type === 'param') counts.param += 1;
+    else if (c.kind.type === 'markdown') counts.markdown += 1;
+    else counts.other += 1;
+  }
+  const modified = typeof nb.meta.extra.modified === 'string'
+    ? new Date(nb.meta.extra.modified).toLocaleString('zh-CN', { hour12: false })
+    : '—';
+  const rows: [string, string][] = [
+    ['文件', file?.fileName ?? nb.meta.title],
+    ['领域包', nb.meta.packages.length > 0 ? nb.meta.packages.map((p) => `${p.name} ${p.version}`).join(', ') : '无'],
+    ['单元', `${counts.code} 计算 · ${counts.param} 参数 · ${counts.markdown} 文本${counts.other > 0 ? ` · ${counts.other} 其他` : ''}`],
+    ['默认视图', nb.meta.defaultView],
+    ['最后修改', modified],
+  ];
+
+  return (
+    <div style={{ background: M3.surfaceLow, borderRadius: 14, padding: '4px 14px', margin: '10px 0 18px' }} data-testid="read-properties">
+      <div onClick={() => setOpen(!open)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 0', cursor: 'pointer' }}>
+        <IcFile size={14} color={M3.textTertiary} />
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.03em', flex: 1 }}>文档属性</span>
+        <div style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .15s', display: 'flex' }}>
+          <IcChevronDown size={14} color={M3.textTertiary} />
+        </div>
+      </div>
+      {open && (
+        <div style={{ paddingBottom: 10 }}>
+          {rows.map(([k, v]) => (
+            <div key={k} style={{ display: 'flex', gap: 12, padding: '4px 0' }}>
+              <span style={{ fontSize: 12, color: M3.textFaint, width: 58, flexShrink: 0 }}>{k}</span>
+              <span style={{ fontSize: 12, color: M3.textSecondary, minWidth: 0, overflowWrap: 'anywhere' }}>{v}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function InlineHeader({ card, onEdit }: { card: RenderCard; onEdit: () => void }) {
   return (
@@ -55,9 +101,12 @@ function SourceFold({ cell, open, onToggle }: { cell?: Cell; open: boolean; onTo
 export function ReadView() {
   const { session } = useSession();
   const cards = deriveCards(session);
-  const { goMode, selectCell } = useStore();
+  const { goMode, selectCell, readCollapsed, toolbarHeight, set } = useStore();
   const ref = useRef<HTMLDivElement>(null);
   const [openSource, setOpenSource] = useState<Set<string>>(new Set());
+  const measureRef = useMeasuredHeight<HTMLDivElement>(
+    useCallback((h) => useStore.setState({ toolbarHeight: h + 24 }), []),
+  );
 
   const toggleSource = (id: string) => setOpenSource((s) => {
     const next = new Set(s);
@@ -75,7 +124,7 @@ export function ReadView() {
       <div
         ref={ref}
         style={{
-          position: 'absolute', inset: 0, overflowY: 'auto', padding: '22px 20px 40px',
+          position: 'absolute', inset: 0, overflowY: 'auto', padding: `22px 20px ${toolbarHeight}px`,
           boxSizing: 'border-box', maxWidth: 560, margin: '0 auto',
         }}
       >
@@ -86,9 +135,11 @@ export function ReadView() {
                 <div key={card.key} style={{ marginBottom: 20 }}>
                   <div style={{ fontSize: 24, fontWeight: 700, color: M3.text, lineHeight: 1.3 }}>{card.title}</div>
                   {card.summary && <div style={{ fontSize: 13, color: M3.textTertiary, marginTop: 4 }}>{card.summary}</div>}
+                  <PropertiesCard session={session} />
                 </div>
               );
             case 'note':
+              if (readCollapsed) return null;
               return (
                 <div key={card.key} style={{ marginBottom: 4 }}>
                   <MarkdownFlow source={card.summary} />
@@ -173,11 +224,26 @@ export function ReadView() {
         })}
       </div>
 
-      <div style={{ position: 'absolute', right: 12, bottom: 16, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 10 }}>
-        <IconButton size={42} onClick={() => { if (ref.current) ref.current.scrollTop = 0; }} style={{ background: '#FFFFFF', boxShadow: '0 2px 8px rgba(0,0,0,.16)' }}>
-          <IcArrowUp size={18} color={M3.primary} />
-        </IconButton>
-      </div>
+      <ToolbarShell testId="read-toolbar" style={{ padding: '10px 14px 14px' }}>
+        <div ref={measureRef} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconButton size={32} onClick={() => { if (ref.current) ref.current.scrollTop = 0; }} style={{ background: '#FFFFFF' }}>
+              <IcArrowUp size={17} color={M3.primary} />
+            </IconButton>
+            <IconButton size={32} onClick={() => set({ readCollapsed: !readCollapsed })} style={{ background: '#FFFFFF' }} testId="read-collapse">
+              <div style={{ transform: readCollapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s', display: 'flex' }}>
+                <IcChevronDown size={17} color={M3.textSecondary} />
+              </div>
+            </IconButton>
+            <span style={{ fontSize: 11.5, color: M3.textTertiary, flex: 1 }}>{readCollapsed ? '已折叠说明' : '回到顶部 · 折叠说明'}</span>
+          </div>
+          <div style={{ display: 'flex', background: M3.surfaceContainer, borderRadius: 20, padding: 3, gap: 2 }}>
+            <SegTab active={false} onClick={() => goMode('feed')}>Feed</SegTab>
+            <SegTab active onClick={() => {}}>Read</SegTab>
+            <SegTab active={false} onClick={() => goMode('calc')}>Calc</SegTab>
+          </div>
+        </div>
+      </ToolbarShell>
     </>
   );
 }

@@ -13,8 +13,8 @@ Action Registry 与 Agent 子协议。
 ```bash
 npm install
 npm run dev          # http://127.0.0.1:5173(建议以 412×892 移动视口打开)
-npm test             # 20 个单元测试(解析器 / DAG / kernel 黄金值 / agent)
-npm run e2e          # 9 个 Playwright 场景(需 Chromium;可用 CHROMIUM_PATH 指定)
+npm test             # 22 个单元测试(解析器 / DAG / kernel 黄金值 / agent)
+npm run e2e          # 13 个 Playwright 场景(需 Chromium;可用 CHROMIUM_PATH 指定)
 npm run build        # tsc + vite 产物
 ```
 
@@ -72,6 +72,21 @@ quantity(delta_mm, "mm")
 | Action Registry(Applicability AND/OR 谓词、内置基线、包贡献) | `src/core/actions/registry.ts` |
 | Agent 子协议(轮次事件、propose/pending、脚本化编排器) | `src/core/agent/orchestrator.ts` |
 | 三视图 = 同一卡片派生的投影 | `src/app/derive.ts` + `views/` |
+
+## 视图交互(竞品对照)
+
+三视图始终是同一 `.pro.md` 的投影;每个视图的交互取自各自品类的最佳实践:
+
+- **Calc ← Wolfram Notebook**:计算卡片下方是"依赖符号"chips——笔记本符号
+  带实时值、域包函数带 `域包` 标签;点击打开符号检查面板(kernel `inspect`
+  协议:文档 + 当前值 + 定位到定义单元)。从其他视图带选中进入 Calc 会自动
+  滚动到该单元的卡片。
+- **Read ← Obsidian**:文档顶部为"文档属性"卡(frontmatter 的投影:文件名、
+  领域包、单元统计、默认视图、修改时间);每行带块类型标签,当前选中单元
+  有左侧高亮。
+- **Feed ← TikTok**:顶部叠加"文件名 + N/M · 类型"定位徽章(强调 feed 是
+  一份文档的投影而非信息流);可编辑卡片带"在 Calc 中编辑"直达按钮;首次
+  进入显示上滑引导,滚动后消失。带选中进入 Feed 落在对应卡片。
 
 Agent 当前为**脚本化实现**:轮次状态机、工具调用事件、pending 影子求值、
 按项接受/拒绝、整轮撤销全部真实;仅"模型"是读取 kernel 实时状态的确定性

@@ -19,7 +19,8 @@ export type Request =
   | { op: 'set_param'; cellId: Ulid; value: ParamValue }
   | { op: 'interrupt'; generation?: number }
   | { op: 'inspect'; symbol: string }
-  | { op: 'reset_kernel' };
+  | { op: 'reset_kernel' }
+  | { op: 'load_package'; name: string };
 
 export type Reply =
   | { op: 'ok' }

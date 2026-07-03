@@ -1,14 +1,35 @@
-import { useEffect, useRef } from 'react';
-import { M3, type ShellTheme } from '../theme';
-import { useSession, useStore } from '../store';
+import { useCallback, useEffect, useRef } from 'react';
+import { M3 } from '../theme';
+import { NOTEBOOK_FILES, useSession, useStore } from '../store';
 import { deriveCards, type RenderCard } from '../derive';
 import { fmtNumber } from '../../core/kernel/kernel';
 import { PlotSvg } from '../cells/PlotSvg';
 import { ParamControls } from '../cells/ParamControls';
-import { ComingSoonTag, disabledStyle, IconButton, StateChip } from '../components/widgets';
+import { ComingSoonTag, disabledStyle, SegTab, IconButton, StateChip, ToolbarShell } from '../components/widgets';
+import { useMeasuredHeight } from '../hooks/useMeasuredHeight';
 import {
-  IcBookmark, IcCheckCircle, IcClose, IcDots, IcGrid, IcNote, IcSparkle, IcTable, IcWave, IcXCircle,
+  IcBookmark, IcCheckCircle, IcChevronUp, IcClose, IcCode, IcDots, IcGrid, IcNote, IcSparkle, IcTable, IcWave, IcXCircle,
 } from '../components/icons';
+
+/** TikTok-style per-card CTA: jump to the same cell's Calc projection. */
+function EditInCalc({ card }: { card: RenderCard }) {
+  const { goMode, selectCell } = useStore();
+  if (!card.cell || !(card.kind === 'compute' || card.kind === 'plot' || card.kind === 'error' || card.kind === 'check')) return null;
+  return (
+    <div
+      data-testid="feed-edit-in-calc"
+      onClick={() => { selectCell(card.cell!.id); goMode('calc'); }}
+      style={{
+        marginTop: 22, display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px',
+        borderRadius: 14, background: M3.primaryContainer, color: M3.onPrimaryContainer,
+        fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+      }}
+    >
+      <IcCode size={14} />
+      在 Calc 中编辑
+    </div>
+  );
+}
 
 function FeedPage({ card }: { card: RenderCard }) {
   const base: React.CSSProperties = {
@@ -52,6 +73,7 @@ function FeedPage({ card }: { card: RenderCard }) {
               <ParamControls params={card.paramCells} compact />
             </div>
           )}
+          <EditInCalc card={card} />
         </div>
       );
     case 'plot':
@@ -60,6 +82,7 @@ function FeedPage({ card }: { card: RenderCard }) {
           <div style={{ fontSize: 15, fontWeight: 600, color: M3.text, marginBottom: 14 }}>{card.title}</div>
           {card.plot && <div style={{ width: 260 }}><PlotSvg plot={card.plot} strokeWidth={3} height={102} /></div>}
           <div style={{ fontSize: 12.5, color: M3.textTertiary, marginTop: 10 }}>{card.summary}</div>
+          <EditInCalc card={card} />
         </div>
       );
     case 'check': {
@@ -83,6 +106,7 @@ function FeedPage({ card }: { card: RenderCard }) {
               <ParamControls params={card.paramCells} compact />
             </div>
           )}
+          <EditInCalc card={card} />
         </div>
       );
     }
@@ -95,6 +119,7 @@ function FeedPage({ card }: { card: RenderCard }) {
           <div style={{ fontSize: 17, fontWeight: 600, color: M3.text, marginTop: 16 }}>{card.title}</div>
           <div style={{ fontSize: 13, color: M3.onErrorContainer, marginTop: 4, maxWidth: 280 }}>{card.error?.message}</div>
           <div style={{ marginTop: 8 }}><StateChip state="errored" /></div>
+          <EditInCalc card={card} />
         </div>
       );
     case 'placeholder':
@@ -112,13 +137,17 @@ function FeedPage({ card }: { card: RenderCard }) {
   }
 }
 
-export function FeedView({ shell }: { shell: ShellTheme }) {
+export function FeedView() {
   const { session } = useSession();
   const cards = deriveCards(session);
   const {
-    feedIndex, feedOverview, feedActionMenuOpen, set, goMode, selectCell,
+    feedIndex, feedOverview, feedActionMenuOpen, feedHintSeen, notebookPath, toolbarHeight, set, goMode, selectCell,
   } = useStore();
+  const fileName = NOTEBOOK_FILES.find((f) => f.path === notebookPath)?.fileName ?? session.notebook.meta.title;
   const ref = useRef<HTMLDivElement>(null);
+  const measureRef = useMeasuredHeight<HTMLDivElement>(
+    useCallback((h) => useStore.setState({ toolbarHeight: h + 24 }), []),
+  );
 
   // when entering feed with a selected cell, jump to its card
   const selectedCellId = useStore((s) => s.selectedCellId);
@@ -134,6 +163,7 @@ export function FeedView({ shell }: { shell: ShellTheme }) {
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const h = e.currentTarget.clientHeight || 1;
     const idx = Math.max(0, Math.min(cards.length - 1, Math.round(e.currentTarget.scrollTop / h)));
+    if (!feedHintSeen && e.currentTarget.scrollTop > 40) set({ feedHintSeen: true });
     if (idx !== feedIndex) {
       const cellId = cards[idx]?.cell?.id;
       set({ feedIndex: idx });
@@ -156,8 +186,46 @@ export function FeedView({ shell }: { shell: ShellTheme }) {
         {cards.map((card) => <FeedPage key={card.key} card={card} />)}
       </div>
 
+      {/* TikTok-style position badge: which file, which card — makes it
+          obvious the feed is a projection of one document, not a stream */}
+      <div style={{ position: 'absolute', top: 12, left: 14, right: 14, display: 'flex', justifyContent: 'space-between', gap: 8, zIndex: 14, pointerEvents: 'none' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 10,
+          background: 'rgba(255,255,255,.82)', backdropFilter: 'blur(6px)', minWidth: 0,
+          fontSize: 11, fontWeight: 600, color: M3.textSecondary, boxShadow: '0 1px 4px rgba(0,0,0,.08)',
+        }} data-testid="feed-file-badge">
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</span>
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 10,
+          background: 'rgba(255,255,255,.82)', backdropFilter: 'blur(6px)', flexShrink: 0,
+          fontSize: 11, fontWeight: 600, color: M3.textSecondary, boxShadow: '0 1px 4px rgba(0,0,0,.08)',
+        }} data-testid="feed-index-badge">
+          <span style={{ color: M3.primary }}>{feedIndex + 1}/{cards.length}</span>
+          <span>· {cards[feedIndex]?.overviewLabel ?? ''}</span>
+        </div>
+      </div>
+
+      {/* first-run swipe hint (fades after the first scroll) */}
+      {!feedHintSeen && (
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: toolbarHeight + 16, zIndex: 14,
+          display: 'flex', justifyContent: 'center', pointerEvents: 'none',
+        }} data-testid="feed-swipe-hint">
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 14,
+            background: 'rgba(29,27,32,.72)', color: '#F5EEFF', fontSize: 11.5, fontWeight: 500,
+          }}>
+            <span style={{ display: 'flex', animation: 'pa-bob 1.2s ease-in-out infinite' }}>
+              <IcChevronUp size={14} color="#F5EEFF" />
+            </span>
+            上滑浏览下一张卡片
+          </div>
+        </div>
+      )}
+
       {feedOverview && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(28,27,31,.75)', zIndex: 15, padding: '20px 16px', boxSizing: 'border-box', overflowY: 'auto' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(28,27,31,.75)', zIndex: 25, padding: '20px 16px', boxSizing: 'border-box', overflowY: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>全部卡片概览</span>
             <IconButton size={30} onClick={() => set({ feedOverview: false })} style={{ background: 'rgba(255,255,255,.15)' }}>
@@ -190,8 +258,8 @@ export function FeedView({ shell }: { shell: ShellTheme }) {
         </div>
       )}
 
-      {/* priority quick actions */}
-      <div style={{ position: 'absolute', right: 12, bottom: 96, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 16 }}>
+      {/* priority quick actions — float just above the toolbar, never over it */}
+      <div style={{ position: 'absolute', right: 12, bottom: toolbarHeight + 12, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 16 }}>
         <IconButton onClick={() => set({ artifactsOpen: true, drawerOpen: false, agentsOpen: false })} style={{ background: '#FFFFFF', boxShadow: '0 2px 8px rgba(0,0,0,.18)' }}>
           <IcBookmark size={19} color={M3.primary} />
         </IconButton>
@@ -203,7 +271,7 @@ export function FeedView({ shell }: { shell: ShellTheme }) {
             <IcDots size={19} color={M3.textSecondary} />
           </IconButton>
           {feedActionMenuOpen && (
-            <div style={{ position: 'absolute', right: 52, bottom: 0, background: '#FFFFFF', borderRadius: 14, boxShadow: '0 6px 20px rgba(0,0,0,.2)', padding: 6, minWidth: 160 }}>
+            <div style={{ position: 'absolute', right: 0, bottom: '100%', marginBottom: 8, background: '#FFFFFF', borderRadius: 14, boxShadow: '0 6px 20px rgba(0,0,0,.2)', padding: 6, minWidth: 160 }}>
               {([
                 { label: '添加批注' },
                 { label: '分享该卡片', run: () => { set({ feedActionMenuOpen: false }); useStore.getState().shareNotebook(); } },
@@ -223,21 +291,26 @@ export function FeedView({ shell }: { shell: ShellTheme }) {
         </div>
       </div>
 
-      {/* bottom pager — mode switching lives in the top SegTab, no need to duplicate it here */}
-      <div style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0, padding: '10px 16px 16px',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-        background: `linear-gradient(rgba(254,247,255,0), ${shell.contentBg}EB 40%)`,
-      }}>
-        <IconButton size={26} onClick={() => set({ feedOverview: !feedOverview })} testId="feed-overview-btn">
-          <IcGrid size={15} color={M3.primary} />
-        </IconButton>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {cards.map((c, i) => (
-            <div key={c.key} style={{ width: 6, height: 6, borderRadius: 3, background: i === feedIndex ? M3.primary : M3.outlineDim }} />
-          ))}
+      {/* bottom toolbar — same floating-card shell as Calc's action stack */}
+      <ToolbarShell testId="feed-toolbar" style={{ padding: '12px 16px 14px' }}>
+        <div ref={measureRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <IconButton size={26} onClick={() => set({ feedOverview: !feedOverview })} testId="feed-overview-btn">
+              <IcGrid size={15} color={M3.primary} />
+            </IconButton>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {cards.map((c, i) => (
+                <div key={c.key} style={{ width: 6, height: 6, borderRadius: 3, background: i === feedIndex ? M3.primary : M3.outlineDim }} />
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', background: M3.surfaceContainer, borderRadius: 20, padding: 3, gap: 2, width: '100%' }}>
+            <SegTab active onClick={() => {}}>Feed</SegTab>
+            <SegTab active={false} onClick={() => goMode('read')}>Read</SegTab>
+            <SegTab active={false} onClick={() => goMode('calc')}>Calc</SegTab>
+          </div>
         </div>
-      </div>
+      </ToolbarShell>
     </>
   );
 }

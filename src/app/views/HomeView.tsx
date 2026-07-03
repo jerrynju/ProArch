@@ -1,19 +1,22 @@
 import { M3 } from '../theme';
-import { getBundle, useStore } from '../store';
+import { getBundle, projectOf, RECENT_CONVERSATIONS, useStore } from '../store';
 import { deriveCards } from '../derive';
 import { IcSparkle, IcStar, IcTrend } from '../components/icons';
-
-const CONVERSATIONS = [
-  { title: '规范校核讨论', sub: '当前参数下是否满足 L/250…', when: '2小时前' },
-  { title: 'RF 链路余量', sub: '50 km 时链路余量是否足够…', when: '昨天' },
-];
 
 export function HomeView() {
   const { openNotebook, set, files } = useStore();
   useStore((s) => s.tick);
   const isLoggedIn = useStore((s) => s.isLoggedIn);
+  const notebookPath = useStore((s) => s.notebookPath);
 
-  const summaries = files.map((f) => {
+  // Home is a dashboard for the *active* project — a workbench that mixes in
+  // every other project's chat threads and calc runs just adds noise (and
+  // leaks context you didn't ask for) whenever you're heads-down in one.
+  const currentProject = projectOf(notebookPath);
+  const projectFiles = files.filter((f) => f.project === currentProject);
+  const conversations = RECENT_CONVERSATIONS.filter((c) => projectOf(c.path) === currentProject);
+
+  const summaries = projectFiles.map((f) => {
     const b = getBundle(f.path);
     const cards = deriveCards(b.session);
     const compute = cards.find((c) => c.kind === 'compute');
@@ -26,23 +29,28 @@ export function HomeView() {
       <div style={{ fontSize: 13, color: M3.textTertiary, marginTop: 3 }}>{isLoggedIn ? '王工程师' : '未登录'},欢迎回来</div>
 
       <div style={{ fontSize: 12, fontWeight: 600, color: M3.textTertiary, margin: '22px 0 10px' }}>最近对话</div>
-      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 2 }}>
-        {CONVERSATIONS.map((c, i) => (
-          <div
-            key={c.title}
-            onClick={() => {
-              openNotebook(files[i]?.path ?? files[0].path, 'calc');
-              set({ actionMode: 'chat', actionExpanded: true, actionSubView: null });
-            }}
-            style={{ flexShrink: 0, width: 190, background: M3.surfaceContainer, borderRadius: 16, padding: 14, cursor: 'pointer' }}
-          >
-            <IcSparkle size={18} color={M3.primary} />
-            <div style={{ fontSize: 13, fontWeight: 600, color: M3.text, marginTop: 8 }}>{c.title}</div>
-            <div style={{ fontSize: 11.5, color: M3.textTertiary, marginTop: 4, lineHeight: 1.4 }}>{c.sub}</div>
-            <div style={{ fontSize: 10.5, color: M3.textFaint, marginTop: 8 }}>{c.when}</div>
-          </div>
-        ))}
-      </div>
+      {conversations.length > 0 ? (
+        <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 2 }}>
+          {conversations.map((c) => (
+            <div
+              key={c.title}
+              data-testid="home-conversation"
+              onClick={() => {
+                openNotebook(c.path, 'calc');
+                set({ actionMode: 'chat', actionExpanded: true, actionSubView: null });
+              }}
+              style={{ flexShrink: 0, width: 190, background: M3.surfaceContainer, borderRadius: 16, padding: 14, cursor: 'pointer' }}
+            >
+              <IcSparkle size={18} color={M3.primary} />
+              <div style={{ fontSize: 13, fontWeight: 600, color: M3.text, marginTop: 8 }}>{c.title}</div>
+              <div style={{ fontSize: 11.5, color: M3.textTertiary, marginTop: 4, lineHeight: 1.4 }}>{c.sub}</div>
+              <div style={{ fontSize: 10.5, color: M3.textFaint, marginTop: 8 }}>{c.when}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12.5, color: M3.textFaint, padding: '4px 2px' }}>本项目暂无对话记录</div>
+      )}
 
       <div style={{ fontSize: 12, fontWeight: 600, color: M3.textTertiary, margin: '22px 0 10px' }}>最近计算</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

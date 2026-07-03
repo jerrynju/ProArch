@@ -83,3 +83,4 @@ export const IcAntenna = (p: P) => <S {...p}><circle cx="12" cy="12" r="2" /><pa
 export const IcWrench = (p: P) => <S {...p}><path d="M14.7 6.3a4 4 0 0 0-5.6 5.1L3 17.5V21h3.5l6.1-6.1a4 4 0 0 0 5.1-5.6L14.9 12l-2.9-2.9 2.7-2.8z" /></S>;
 export const IcPencil = (p: P) => <S {...p}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></S>;
 export const IcLock = (p: P) => <S {...p}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></S>;
+export const IcPackage = (p: P) => <S {...p}><path d="M21 8v8a1 1 0 0 1-.5.87l-8 4.5a1 1 0 0 1-1 0l-8-4.5A1 1 0 0 1 3 16V8a1 1 0 0 1 .5-.87l8-4.5a1 1 0 0 1 1 0l8 4.5A1 1 0 0 1 21 8z" /><polyline points="3.3 7.3 12 12 20.7 7.3" /><line x1="12" y1="12" x2="12" y2="21.3" /></S>;
