@@ -186,6 +186,69 @@ test.describe('ProArch engineering notebook', () => {
     await shot(page, '18-error-fixed');
   });
 
+  test('symbol chips open the Wolfram-style inspect sheet', async ({ page }) => {
+    await page.goto('/');
+    // notebook symbol: live value + jump to its defining card
+    await page.getByTestId('sym-chip-F').first().click();
+    await expect(page.getByTestId('inspect-sheet')).toBeVisible();
+    await expect(page.getByTestId('inspect-sheet')).toContainText('当前值');
+    await shot(page, '20-inspect-symbol');
+    await page.getByTestId('inspect-goto-definer').click();
+    await expect(page.getByTestId('inspect-sheet')).not.toBeVisible();
+
+    // package function: docs come from the rf domain package
+    await page.getByTestId('menu-btn').click();
+    await page.getByTestId('nbfile-rf-link-budget.pro.md').click();
+    await page.getByTestId('sym-chip-fspl').first().click();
+    await expect(page.getByTestId('inspect-sheet')).toContainText('自由空间路径损耗');
+    await shot(page, '21-inspect-pkg-fn');
+    await page.getByTestId('inspect-sheet').getByTestId('sheet-close').click();
+  });
+
+  test('feed: position badge, swipe hint, and edit-in-calc round trip', async ({ page }) => {
+    await page.goto('/');
+    // default selection is beam-verify — entering Feed lands on that card's
+    // projection (cross-view continuity), so the badge reads its position
+    await page.getByText('Feed', { exact: true }).first().click();
+    await expect(page.getByTestId('feed-index-badge')).toContainText('/8');
+    await expect(page.getByTestId('feed-index-badge')).toContainText('校核');
+    await expect(page.getByTestId('feed-file-badge')).toContainText('悬臂梁挠度.pro.md');
+    await shot(page, '22-feed-badges');
+
+    // jump to the compute card, then hop to its Calc projection
+    await page.getByTestId('feed-overview-btn').click();
+    await page.getByText('3 · 结果').click();
+    await expect(page.getByTestId('feed-result')).toBeVisible();
+    await page.getByTestId('feed-edit-in-calc').first().click();
+    await expect(page.getByTestId('action-stack')).toBeVisible();
+    await expect(page.getByTestId('result-beam-compute')).toBeVisible();
+    await shot(page, '23-feed-to-calc');
+  });
+
+  test('feed: first-run swipe hint shows once per session', async ({ page }) => {
+    await page.goto('/');
+    // open a notebook with no selection so entering Feed doesn't auto-scroll
+    await page.getByTestId('menu-btn').click();
+    await page.getByTestId('nbfile-rf-link-budget.pro.md').click();
+    await page.getByText('Feed', { exact: true }).first().click();
+    await expect(page.getByTestId('feed-index-badge')).toContainText('1/');
+    await expect(page.getByTestId('feed-swipe-hint')).toBeVisible();
+    await shot(page, '25-feed-hint');
+    // any scroll consumes the hint for the rest of the session
+    await page.getByTestId('feed-scroll').evaluate((el) => { el.scrollTop = el.clientHeight; });
+    await expect(page.getByTestId('feed-swipe-hint')).not.toBeVisible();
+  });
+
+  test('read: document properties project the frontmatter', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('menu-btn').click();
+    await page.getByTestId('nbfile-rf-link-budget.pro.md').click();
+    await page.getByText('Read', { exact: true }).first().click();
+    await expect(page.getByTestId('read-properties')).toContainText('rf ^1.0');
+    await expect(page.getByTestId('read-properties')).toContainText('X波段链路预算.pro.md');
+    await shot(page, '24-read-properties');
+  });
+
   test('home view scopes recents to the active project', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('home-btn').click();

@@ -70,4 +70,28 @@ describe('rf notebook (domain package)', () => {
     const check = s.outputs.get('rf-verify')?.['application/vnd.proarch.check+json'];
     expect(check?.pass).toBe(false);
   });
+
+  it('symbolsOf splits notebook symbols from package functions', () => {
+    const s = new KernelSession(load('rf-link-budget.pro.md'), ALL_PACKAGES);
+    const { userSyms, pkgFns } = s.symbolsOf('rf-compute');
+    expect(pkgFns).toContain('fspl');
+    expect(userSyms).toEqual(expect.arrayContaining(['Pt', 'dist', 'freq', 'Gsum']));
+    // core builtins never appear as dependencies
+    expect(userSyms).not.toContain('quantity');
+    expect(pkgFns).not.toContain('quantity');
+  });
+
+  it('load_package attaches a package to a running session and clears errors', () => {
+    const s = new KernelSession(load('rf-link-budget.pro.md'), ALL_PACKAGES.map((p) => p));
+    // simulate a notebook that never declared rf: strip and rebuild
+    const bare = load('rf-link-budget.pro.md');
+    bare.meta.packages = [];
+    const s2 = new KernelSession(bare, ALL_PACKAGES);
+    expect(s2.errors.get('rf-compute')?.kind).toBe('undefined_symbol');
+    const reply = s2.request({ op: 'load_package', name: 'rf' });
+    expect(reply.op).toBe('ok');
+    expect(s2.errors.get('rf-compute')).toBeUndefined();
+    expect(s2.notebook.meta.packages.map((p) => p.name)).toContain('rf');
+    expect(s.capabilities).toContain('pkg.rf');
+  });
 });

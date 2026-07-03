@@ -203,6 +203,22 @@ export class KernelSession {
     return [...(this.analyses.get(id)?.defines ?? [])];
   }
 
+  /** Free symbols a code cell pulls in, split by provenance for introspection
+   * UI: notebook-defined symbols (inspect shows live value) vs domain-package
+   * functions (inspect shows the package's docs). Core builtins are omitted —
+   * they're ambient language, not dependencies worth surfacing. */
+  symbolsOf(id: Ulid): { userSyms: string[]; pkgFns: string[] } {
+    const a = this.analyses.get(id);
+    if (!a) return { userSyms: [], pkgFns: [] };
+    const userSyms: string[] = [];
+    const pkgFns: string[] = [];
+    for (const ref of a.references) {
+      if (this.packageDocs[ref]) pkgFns.push(ref);
+      else if (!this.builtins.has(ref)) userSyms.push(ref);
+    }
+    return { userSyms, pkgFns };
+  }
+
   paramDisplay(cell: Cell): string {
     if (cell.kind.type !== 'param') return '';
     const unit = 'unit' in cell.kind.control ? cell.kind.control.unit : undefined;

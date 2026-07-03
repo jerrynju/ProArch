@@ -134,6 +134,10 @@ interface Store {
   toolbarHeight: number;
   toast: { id: number; message: string } | null;
   showToast: (message: string) => void;
+  /** symbol currently open in the Wolfram-style inspect sheet */
+  inspectSymbol: string | null;
+  /** TikTok-style first-run swipe hint on the Feed view */
+  feedHintSeen: boolean;
 
   drawerOpen: boolean;
   drawerView: 'main' | 'account' | 'favorites' | 'newProject' | 'settings' | 'login';
@@ -198,6 +202,8 @@ export const useStore = create<Store>((set, get) => ({
   sourceHidden: {},
   toolbarHeight: 190,
   toast: null,
+  inspectSymbol: null,
+  feedHintSeen: false,
 
   drawerOpen: false,
   drawerView: 'main',
@@ -246,7 +252,7 @@ export const useStore = create<Store>((set, get) => ({
     getBundle(path);
     set({
       notebookPath: path, mode, drawerOpen: false, drawerView: 'main', selectedCellId: null,
-      feedIndex: 0, actionMode: 'tools', actionSubView: null, pendingOpen: false,
+      feedIndex: 0, actionMode: 'tools', actionSubView: null, pendingOpen: false, inspectSymbol: null,
     });
   },
 

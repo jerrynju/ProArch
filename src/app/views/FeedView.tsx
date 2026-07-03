@@ -1,14 +1,34 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { M3 } from '../theme';
-import { useSession, useStore } from '../store';
+import { NOTEBOOK_FILES, useSession, useStore } from '../store';
 import { deriveCards, type RenderCard } from '../derive';
 import { fmtNumber } from '../../core/kernel/kernel';
 import { PlotSvg } from '../cells/PlotSvg';
 import { SegTab, IconButton, StateChip, ToolbarShell } from '../components/widgets';
 import { useMeasuredHeight } from '../hooks/useMeasuredHeight';
 import {
-  IcBookmark, IcCheckCircle, IcClose, IcDots, IcGrid, IcNote, IcSparkle, IcTable, IcWave, IcXCircle,
+  IcBookmark, IcCheckCircle, IcChevronUp, IcClose, IcCode, IcDots, IcGrid, IcNote, IcSparkle, IcTable, IcWave, IcXCircle,
 } from '../components/icons';
+
+/** TikTok-style per-card CTA: jump to the same cell's Calc projection. */
+function EditInCalc({ card }: { card: RenderCard }) {
+  const { goMode, selectCell } = useStore();
+  if (!card.cell || !(card.kind === 'compute' || card.kind === 'plot' || card.kind === 'error' || card.kind === 'check')) return null;
+  return (
+    <div
+      data-testid="feed-edit-in-calc"
+      onClick={() => { selectCell(card.cell!.id); goMode('calc'); }}
+      style={{
+        marginTop: 22, display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px',
+        borderRadius: 14, background: M3.primaryContainer, color: M3.onPrimaryContainer,
+        fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+      }}
+    >
+      <IcCode size={14} />
+      在 Calc 中编辑
+    </div>
+  );
+}
 
 function FeedPage({ card }: { card: RenderCard }) {
   const base: React.CSSProperties = {
@@ -43,6 +63,7 @@ function FeedPage({ card }: { card: RenderCard }) {
               {card.aside.label} = {card.aside.value}
             </div>
           )}
+          <EditInCalc card={card} />
         </div>
       );
     case 'plot':
@@ -51,6 +72,7 @@ function FeedPage({ card }: { card: RenderCard }) {
           <div style={{ fontSize: 15, fontWeight: 600, color: M3.text, marginBottom: 14 }}>{card.title}</div>
           {card.plot && <div style={{ width: 260 }}><PlotSvg plot={card.plot} strokeWidth={3} height={102} /></div>}
           <div style={{ fontSize: 12.5, color: M3.textTertiary, marginTop: 10 }}>{card.summary}</div>
+          <EditInCalc card={card} />
         </div>
       );
     case 'check': {
@@ -65,6 +87,7 @@ function FeedPage({ card }: { card: RenderCard }) {
           </div>
           <div style={{ fontSize: 17, fontWeight: 600, color: M3.text, marginTop: 16 }}>{card.title}</div>
           <div style={{ fontSize: 13, color: M3.textSecondary, marginTop: 4 }} data-testid="feed-check">{card.check?.message}</div>
+          <EditInCalc card={card} />
         </div>
       );
     }
@@ -77,6 +100,7 @@ function FeedPage({ card }: { card: RenderCard }) {
           <div style={{ fontSize: 17, fontWeight: 600, color: M3.text, marginTop: 16 }}>{card.title}</div>
           <div style={{ fontSize: 13, color: M3.onErrorContainer, marginTop: 4, maxWidth: 280 }}>{card.error?.message}</div>
           <div style={{ marginTop: 8 }}><StateChip state="errored" /></div>
+          <EditInCalc card={card} />
         </div>
       );
     case 'placeholder':
@@ -98,8 +122,9 @@ export function FeedView() {
   const { session } = useSession();
   const cards = deriveCards(session);
   const {
-    feedIndex, feedOverview, feedActionMenuOpen, toolbarHeight, set, goMode, selectCell,
+    feedIndex, feedOverview, feedActionMenuOpen, feedHintSeen, notebookPath, toolbarHeight, set, goMode, selectCell,
   } = useStore();
+  const fileName = NOTEBOOK_FILES.find((f) => f.path === notebookPath)?.fileName ?? session.notebook.meta.title;
   const ref = useRef<HTMLDivElement>(null);
   const measureRef = useMeasuredHeight<HTMLDivElement>(
     useCallback((h) => useStore.setState({ toolbarHeight: h + 24 }), []),
@@ -119,6 +144,7 @@ export function FeedView() {
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const h = e.currentTarget.clientHeight || 1;
     const idx = Math.max(0, Math.min(cards.length - 1, Math.round(e.currentTarget.scrollTop / h)));
+    if (!feedHintSeen && e.currentTarget.scrollTop > 40) set({ feedHintSeen: true });
     if (idx !== feedIndex) {
       const cellId = cards[idx]?.cell?.id;
       set({ feedIndex: idx });
@@ -140,6 +166,44 @@ export function FeedView() {
       <div ref={ref} onScroll={onScroll} data-testid="feed-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', scrollSnapType: 'y mandatory' }}>
         {cards.map((card) => <FeedPage key={card.key} card={card} />)}
       </div>
+
+      {/* TikTok-style position badge: which file, which card — makes it
+          obvious the feed is a projection of one document, not a stream */}
+      <div style={{ position: 'absolute', top: 12, left: 14, right: 14, display: 'flex', justifyContent: 'space-between', gap: 8, zIndex: 14, pointerEvents: 'none' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 10,
+          background: 'rgba(255,255,255,.82)', backdropFilter: 'blur(6px)', minWidth: 0,
+          fontSize: 11, fontWeight: 600, color: M3.textSecondary, boxShadow: '0 1px 4px rgba(0,0,0,.08)',
+        }} data-testid="feed-file-badge">
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</span>
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 10,
+          background: 'rgba(255,255,255,.82)', backdropFilter: 'blur(6px)', flexShrink: 0,
+          fontSize: 11, fontWeight: 600, color: M3.textSecondary, boxShadow: '0 1px 4px rgba(0,0,0,.08)',
+        }} data-testid="feed-index-badge">
+          <span style={{ color: M3.primary }}>{feedIndex + 1}/{cards.length}</span>
+          <span>· {cards[feedIndex]?.overviewLabel ?? ''}</span>
+        </div>
+      </div>
+
+      {/* first-run swipe hint (fades after the first scroll) */}
+      {!feedHintSeen && (
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: toolbarHeight + 16, zIndex: 14,
+          display: 'flex', justifyContent: 'center', pointerEvents: 'none',
+        }} data-testid="feed-swipe-hint">
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 14,
+            background: 'rgba(29,27,32,.72)', color: '#F5EEFF', fontSize: 11.5, fontWeight: 500,
+          }}>
+            <span style={{ display: 'flex', animation: 'pa-bob 1.2s ease-in-out infinite' }}>
+              <IcChevronUp size={14} color="#F5EEFF" />
+            </span>
+            上滑浏览下一张卡片
+          </div>
+        </div>
+      )}
 
       {feedOverview && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(28,27,31,.75)', zIndex: 25, padding: '20px 16px', boxSizing: 'border-box', overflowY: 'auto' }}>

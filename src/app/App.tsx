@@ -14,6 +14,7 @@ import { AppDrawer } from './panels/AppDrawer';
 import { AgentsSheet } from './panels/AgentsSheet';
 import { ArtifactsSheet } from './panels/ArtifactsSheet';
 import { PendingSheet } from './panels/PendingSheet';
+import { InspectSheet } from './panels/InspectSheet';
 
 const BUSY_RING: CSSProperties = {
   position: 'absolute', inset: -3, borderRadius: 25, pointerEvents: 'none',
@@ -128,6 +129,7 @@ export default function App() {
           <AgentsSheet />
           <ArtifactsSheet />
           <PendingSheet />
+          <InspectSheet />
           <Toast />
         </div>
       </div>

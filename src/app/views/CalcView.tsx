@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { M3, type ShellTheme } from '../theme';
 import { useSession, useStore } from '../store';
 import { deriveCards, paramDisplayShort, type RenderCard } from '../derive';
@@ -34,7 +34,10 @@ function PackageBadges({ packages }: { packages: PackageReq[] }) {
 }
 
 function CardShell({ card, children }: { card: RenderCard; children: ReactNode }) {
-  const selected = useStore((s) => s.selectedCellId) === card.cell?.id;
+  const sel = useStore((s) => s.selectedCellId);
+  // a param cell renders inside its group's compute card, so selecting one
+  // (e.g. via the symbol inspector's "go to definer") highlights that card
+  const selected = sel !== null && (card.cell?.id === sel || card.paramCells.some((p) => p.id === sel));
   return (
     <div
       data-testid={`cell-${card.cell?.id ?? card.key}`}
@@ -142,6 +145,52 @@ function ParamControls({ params }: { params: Cell[] }) {
   );
 }
 
+/**
+ * Wolfram-notebook-style dependency strip: the free symbols this cell reads,
+ * shown as tappable chips. Notebook symbols carry their live value; domain
+ * package functions carry the package tag. Tapping opens the inspect sheet
+ * (kernel `inspect` op). Same underlying DAG facts in every view — this is
+ * just the Calc projection of them.
+ */
+function SymbolChips({ card }: { card: RenderCard }) {
+  const set = useStore((s) => s.set);
+  const { session } = useSession();
+  const { userSyms, pkgFns } = session.symbolsOf(card.cell!.id);
+  if (userSyms.length === 0 && pkgFns.length === 0) return null;
+  const chipBase = {
+    display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 8,
+    fontSize: 11, fontFamily: "ui-monospace,'SFMono-Regular',Consolas,monospace",
+    cursor: 'pointer', flexShrink: 0,
+  } as const;
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.03em', marginBottom: 6 }}>依赖符号</div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {userSyms.map((s) => {
+          const v = session.currentValue(s);
+          const val = typeof v === 'number' ? fmtNumber(v)
+            : v && typeof v === 'object' && !Array.isArray(v) && v.kind === 'quantity' ? fmtNumber(v.value)
+            : null;
+          return (
+            <div key={s} onClick={() => set({ inspectSymbol: s })} data-testid={`sym-chip-${s}`}
+              style={{ ...chipBase, background: M3.surfaceContainer, color: M3.textSecondary }}>
+              <span style={{ color: M3.primary, fontWeight: 600 }}>{s}</span>
+              {val !== null && <span>= {val}</span>}
+            </div>
+          );
+        })}
+        {pkgFns.map((s) => (
+          <div key={s} onClick={() => set({ inspectSymbol: s })} data-testid={`sym-chip-${s}`}
+            style={{ ...chipBase, background: M3.secondaryContainer, color: M3.onSecondaryContainer }}>
+            <span style={{ fontWeight: 600 }}>{s}()</span>
+            <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(0,0,0,.08)', borderRadius: 4, padding: '1px 4px' }}>域包</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ComputeCard({ card }: { card: RenderCard }) {
   const expanded = useStore((s) => s.expanded)[card.cell!.id] ?? true;
   return (
@@ -150,6 +199,7 @@ function ComputeCard({ card }: { card: RenderCard }) {
       {expanded && (
         <div style={{ padding: '2px 16px 18px', borderTop: `1px solid ${M3.surfaceContainer}` }}>
           <SourceSection cell={card.cell!} />
+          <SymbolChips card={card} />
           <ParamControls params={card.paramCells} />
           <div style={{ marginTop: 16, background: M3.surfaceContainer, borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
@@ -179,6 +229,7 @@ function PlotCard({ card }: { card: RenderCard }) {
       {expanded && (
         <div style={{ padding: '4px 16px 18px', borderTop: `1px solid ${M3.surfaceContainer}` }}>
           <SourceSection cell={card.cell!} />
+          <SymbolChips card={card} />
           {card.plot && (
             <div style={{ marginTop: 10 }}>
               <PlotSvg plot={card.plot} />
@@ -291,9 +342,23 @@ export function CalcView({ shell }: { shell: ShellTheme }) {
   const { session } = useSession();
   const cards = deriveCards(session);
   const toolbarHeight = useStore((s) => s.toolbarHeight);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Cross-projection continuity: arriving from Feed/Read (or the symbol
+  // inspector) with a cell selected, land on that cell's card — the same
+  // cell, just re-projected. Param cells resolve to their group card.
+  useEffect(() => {
+    const sel = useStore.getState().selectedCellId;
+    if (!sel || !ref.current) return;
+    const card = cards.find((c) => c.cell?.id === sel || c.paramCells.some((p) => p.id === sel));
+    if (!card) return;
+    const el = ref.current.querySelector(`[data-testid="cell-${card.cell?.id ?? card.key}"]`) as HTMLElement | null;
+    if (el) ref.current.scrollTop = Math.max(0, el.offsetTop - 72);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `16px 14px ${toolbarHeight}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div ref={ref} style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `16px 14px ${toolbarHeight}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {cards.map((card) => {
         switch (card.kind) {
           case 'section':
