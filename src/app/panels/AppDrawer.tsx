@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
 import { M3 } from '../theme';
-import { NOTEBOOK_FILES, useStore } from '../store';
+import { NOTEBOOK_FILES, useSession, useStore } from '../store';
+import { ALL_PACKAGES } from '../../core/packages/rf';
 import { IconButton, Scrim, Switch } from '../components/widgets';
 import {
-  IcBack, IcChevronRight, IcDownload, IcFile, IcFilePlus, IcFolder, IcFolderPlus, IcGear,
-  IcLogout, IcMoon, IcPlus, IcStar, IcSun, IcUpload, IcUser,
+  IcAntenna, IcBack, IcChevronRight, IcDownload, IcFile, IcFilePlus, IcFolder, IcFolderPlus, IcGear,
+  IcLogout, IcMoon, IcPackage, IcPlus, IcStar, IcSun, IcUpload, IcUser,
 } from '../components/icons';
 
 function SubHeader({ title, onBack }: { title: string; onBack: () => void }) {
@@ -254,6 +255,65 @@ function FolderRow({ folder }: { folder: TreeFolder }) {
   );
 }
 
+/**
+ * Domain packages gate which functions a notebook can call (spec: `fspl` is
+ * invisible until a notebook declares `packages: [rf]`) — until now the only
+ * way to attach one was hand-editing the .pro.md frontmatter. This exposes
+ * the same capability as a UI action against the *currently open* notebook,
+ * sitting right above the settings row per the design brief.
+ */
+function PackageLoaderSection() {
+  const { session } = useSession();
+  const loadPackage = useStore((s) => s.loadPackage);
+  const loadedNames = new Set(session.notebook.meta.packages.map((p) => p.name));
+
+  return (
+    <div style={{ padding: '10px 18px 4px' }}>
+      <div style={{ fontSize: 11.5, fontWeight: 600, color: M3.textTertiary, letterSpacing: '.04em', marginBottom: 8 }}>
+        领域包 · 当前笔记本
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {ALL_PACKAGES.map((pkg) => {
+          const loaded = loadedNames.has(pkg.name);
+          return (
+            <div
+              key={pkg.name}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, background: M3.surfaceLow,
+                borderRadius: 12, padding: '9px 10px 9px 12px',
+              }}
+              data-testid={`pkg-loader-${pkg.name}`}
+            >
+              <span style={{ display: 'flex', color: M3.primary }}>
+                {pkg.name === 'rf' ? <IcAntenna size={16} /> : <IcPackage size={16} />}
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: M3.text }}>{pkg.name}</div>
+                <div style={{ fontSize: 10.5, color: M3.textTertiary, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {Object.keys(pkg.docs).slice(0, 3).join(' · ')}
+                </div>
+              </div>
+              {loaded ? (
+                <span style={{ fontSize: 11, fontWeight: 600, color: M3.onSuccessContainer, background: M3.successContainer, padding: '5px 10px', borderRadius: 10 }}>
+                  已加载
+                </span>
+              ) : (
+                <div
+                  onClick={() => loadPackage(pkg.name)}
+                  data-testid={`pkg-load-btn-${pkg.name}`}
+                  style={{ fontSize: 11, fontWeight: 600, color: M3.onPrimaryContainer, background: M3.primaryContainer, padding: '5px 10px', borderRadius: 10, cursor: 'pointer' }}
+                >
+                  加载
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function MainView() {
   const { isLoggedIn, dark, showUpdateInfo, set } = useStore();
   return (
@@ -306,6 +366,7 @@ function MainView() {
       ))}
 
       <div style={{ flex: 1 }} />
+      <PackageLoaderSection />
       <div style={{ borderTop: `1px solid ${M3.surfaceContainer}`, display: 'flex', alignItems: 'center', gap: 10, padding: '13px 18px 18px', marginTop: 12 }}>
         <div onClick={() => set({ drawerView: 'settings' })} style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, cursor: 'pointer' }} data-testid="drawer-settings">
           <IcGear size={20} color={M3.textSecondary} />

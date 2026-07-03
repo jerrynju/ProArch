@@ -3,6 +3,15 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Mobile browsers resize the viewport as chrome (address bar) shows/hides;
+   a plain 100vh freezes at the tallest state, so once the bar reappears the
+   app shell is taller than the real visible area and floating panels that
+   anchor to "bottom: 0" of that shell drift below the fold. dvh tracks the
+   *current* visible viewport; the vh line is a fallback for browsers that
+   don't support dvh yet. */
+.pa-viewport-minh { min-height: 100vh; min-height: 100dvh; }
+.pa-viewport-h { height: 100vh; height: 100dvh; }
+
 ::-webkit-scrollbar {
   width: 0;
   height: 0;

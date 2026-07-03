@@ -81,3 +81,4 @@ export const IcTrash = (p: P) => <S {...p}><polyline points="4 7 20 7" /><path d
 export const IcWarning = (p: P) => <S {...p}><path d="M12 9v4M12 17h.01" /><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></S>;
 export const IcAntenna = (p: P) => <S {...p}><circle cx="12" cy="12" r="2" /><path d="M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 19a10 10 0 0 1 0-14M19 5a10 10 0 0 1 0 14" /></S>;
 export const IcWrench = (p: P) => <S {...p}><path d="M14.7 6.3a4 4 0 0 0-5.6 5.1L3 17.5V21h3.5l6.1-6.1a4 4 0 0 0 5.1-5.6L14.9 12l-2.9-2.9 2.7-2.8z" /></S>;
+export const IcPackage = (p: P) => <S {...p}><path d="M21 8v8a1 1 0 0 1-.5.87l-8 4.5a1 1 0 0 1-1 0l-8-4.5A1 1 0 0 1 3 16V8a1 1 0 0 1 .5-.87l8-4.5a1 1 0 0 1 1 0l8 4.5A1 1 0 0 1 21 8z" /><polyline points="3.3 7.3 12 12 20.7 7.3" /><line x1="12" y1="12" x2="12" y2="21.3" /></S>;

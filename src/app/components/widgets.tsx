@@ -1,5 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { M3 } from '../theme';
+import { useStore } from '../store';
+import { IcCheckCircle } from './icons';
 
 export function Switch({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   return (
@@ -91,6 +93,29 @@ export function IconButton({ onClick, size = 44, children, style, testId }: {
   );
 }
 
+/**
+ * Shared floating-card shell for the bottom toolbar in all three notebook
+ * views (Calc/Feed/Read) — one visual language (surface, radius, elevation,
+ * side margins) so the panel doesn't look like three unrelated widgets
+ * depending on which mode you're in.
+ */
+export function ToolbarShell({ children, style, testId }: { children: ReactNode; style?: CSSProperties; testId?: string }) {
+  return (
+    <div
+      data-testid={testId}
+      style={{
+        position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 20,
+        background: M3.surfaceLow, borderRadius: 24,
+        boxShadow: '0 6px 20px rgba(0,0,0,.16), 0 1px 3px rgba(0,0,0,.1)',
+        overflow: 'hidden', boxSizing: 'border-box',
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function Scrim({ open, onClick, z = 45, bottomInset = 0 }: { open: boolean; onClick: () => void; z?: number; bottomInset?: number }) {
   return (
     <div
@@ -161,6 +186,40 @@ export function SliderRow({ label, display, min, max, step, value, onChange, com
         onChange={(e) => onChange(Number(e.target.value))}
         style={{ width: '100%', accentColor: M3.primary, margin: 0 }}
       />
+    </div>
+  );
+}
+
+/**
+ * Global confirmation toast. Actions like "export" or "share" used to fire
+ * silently (a file just appeared in the downloads folder with no on-screen
+ * acknowledgement) — this gives every such action a visible result. Sits
+ * above the bottom toolbar in every mode so it's never the thing being
+ * covered.
+ */
+export function Toast() {
+  const toast = useStore((s) => s.toast);
+  const toolbarHeight = useStore((s) => s.toolbarHeight);
+  return (
+    <div
+      data-testid="toast"
+      style={{
+        position: 'absolute', left: 16, right: 16, bottom: toolbarHeight + 22, zIndex: 60,
+        display: 'flex', justifyContent: 'center', pointerEvents: 'none',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8, maxWidth: '100%',
+          background: '#332D41', color: '#F5EEFF', borderRadius: 14, padding: '10px 16px',
+          fontSize: 12.5, fontWeight: 500, boxShadow: '0 4px 16px rgba(0,0,0,.28)',
+          opacity: toast ? 1 : 0, transform: toast ? 'translateY(0)' : 'translateY(6px)',
+          transition: 'opacity .18s, transform .18s',
+        }}
+      >
+        <IcCheckCircle size={15} color="#B69DF8" />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{toast?.message ?? ''}</span>
+      </div>
     </div>
   );
 }

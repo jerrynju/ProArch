@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { M3, shellTheme } from './theme';
 import { useSession, useStore } from './store';
-import { SegTab, IconButton } from './components/widgets';
+import { SegTab, IconButton, Toast } from './components/widgets';
 import {
   IcBookmark, IcCode, IcCopyLink, IcDots, IcDownload, IcHome, IcMenu, IcPrint, IcRobot, IcShare,
 } from './components/icons';
@@ -24,15 +24,15 @@ const BUSY_RING: CSSProperties = {
 };
 
 function MoreMenu() {
-  const { moreMenuOpen, set, exportNotebook, exportScript } = useStore();
+  const { moreMenuOpen, set, exportNotebook, exportScript, showToast } = useStore();
   const entries = [
     { label: '查看 Artifacts', icon: <IcBookmark size={16} color={M3.textSecondary} />, run: () => set({ artifactsOpen: true, moreMenuOpen: false }) },
     { label: '导出为 PDF', icon: <IcDownload size={16} color={M3.textSecondary} />, run: () => { set({ moreMenuOpen: false }); window.print(); } },
     { label: '导出脚本 (.m)', icon: <IcCode size={16} color={M3.textSecondary} />, run: () => { set({ moreMenuOpen: false }); exportScript(); } },
     { label: '导出笔记本 (.pro.md)', icon: <IcDownload size={16} color={M3.textSecondary} />, run: () => { set({ moreMenuOpen: false }); exportNotebook(); } },
-    { label: '分享给协作者', icon: <IcShare size={16} color={M3.textSecondary} />, run: () => set({ moreMenuOpen: false }) },
-    { label: '复制链接', icon: <IcCopyLink size={16} color={M3.textSecondary} />, run: () => set({ moreMenuOpen: false }) },
-    { label: '打印', icon: <IcPrint size={16} color={M3.textSecondary} />, run: () => set({ moreMenuOpen: false }) },
+    { label: '分享给协作者', icon: <IcShare size={16} color={M3.textSecondary} />, run: () => { set({ moreMenuOpen: false }); showToast('已生成协作链接,可粘贴分享'); } },
+    { label: '复制链接', icon: <IcCopyLink size={16} color={M3.textSecondary} />, run: () => { set({ moreMenuOpen: false }); showToast('链接已复制到剪贴板'); } },
+    { label: '打印', icon: <IcPrint size={16} color={M3.textSecondary} />, run: () => { set({ moreMenuOpen: false }); window.print(); } },
   ];
   return (
     <div style={{
@@ -58,13 +58,13 @@ export default function App() {
   const hasPending = session.pending !== null;
 
   return (
-    <div style={{
-      minHeight: '100vh', width: '100%', background: dark ? '#0d0c10' : '#ECE6F0',
+    <div className="pa-viewport-minh" style={{
+      width: '100%', background: dark ? '#0d0c10' : '#ECE6F0',
       display: 'flex', alignItems: 'stretch', justifyContent: 'center',
       fontFamily: "'Roboto', system-ui, sans-serif",
     }}>
-      <div style={{
-        position: 'relative', width: '100%', maxWidth: 480, height: '100vh',
+      <div className="pa-viewport-h" style={{
+        position: 'relative', width: '100%', maxWidth: 480,
         background: shell.contentBg, display: 'flex', flexDirection: 'column', overflow: 'hidden',
         boxShadow: '0 0 40px rgba(0,0,0,.15)',
       }}>
@@ -114,7 +114,7 @@ export default function App() {
               <ActionStack />
             </>
           )}
-          {mode === 'feed' && <FeedView shell={shell} />}
+          {mode === 'feed' && <FeedView />}
           {mode === 'read' && <ReadView />}
 
           {/* more menu scrim + panel */}
@@ -128,6 +128,7 @@ export default function App() {
           <AgentsSheet />
           <ArtifactsSheet />
           <PendingSheet />
+          <Toast />
         </div>
       </div>
     </div>

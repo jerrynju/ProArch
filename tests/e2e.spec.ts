@@ -186,14 +186,25 @@ test.describe('ProArch engineering notebook', () => {
     await shot(page, '18-error-fixed');
   });
 
-  test('home view shows live summaries from both notebooks', async ({ page }) => {
+  test('home view scopes recents to the active project', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('home-btn').click();
     await expect(page.getByText('工作台')).toBeVisible();
+    // default active notebook is the beam one — its project's recents only
     await expect(page.getByTestId('home-recent-0')).toContainText('悬臂梁挠度.pro.md');
-    await expect(page.getByTestId('home-recent-1')).toContainText('X波段链路预算.pro.md');
+    await expect(page.getByTestId('home-recent-1')).toHaveCount(0);
+    await expect(page.getByTestId('home-conversation')).toContainText('规范校核讨论');
     await shot(page, '19-home');
-    await page.getByTestId('home-recent-1').click();
+
+    // switch active project via the drawer, then recents follow it
+    await page.getByTestId('menu-btn').click();
+    await page.getByTestId('nbfile-rf-link-budget.pro.md').click();
+    await page.getByTestId('home-btn').click();
+    await expect(page.getByTestId('home-recent-0')).toContainText('X波段链路预算.pro.md');
+    await expect(page.getByTestId('home-recent-1')).toHaveCount(0);
+    await expect(page.getByTestId('home-conversation')).toContainText('RF 链路余量');
+
+    await page.getByTestId('home-recent-0').click();
     await expect(page.getByText('X 波段链路预算').first()).toBeVisible();
   });
 });

@@ -28,6 +28,19 @@ export const NOTEBOOK_FILES: NotebookFile[] = [
   { path: 'notebooks/rf-link-budget.pro.md', fileName: 'X波段链路预算.pro.md', raw: rfRaw, project: 'rfcomm', recency: '1小时前' },
 ];
 
+export function projectOf(path: string): string | undefined {
+  return NOTEBOOK_FILES.find((f) => f.path === path)?.project;
+}
+
+export interface RecentConversation { path: string; title: string; sub: string; when: string }
+
+// Demo seed data — scoped to a project (spec §5: home surfaces recents for
+// the active project only, never the whole workspace).
+export const RECENT_CONVERSATIONS: RecentConversation[] = [
+  { path: NOTEBOOK_FILES[0].path, title: '规范校核讨论', sub: '当前参数下是否满足 L/250…', when: '2小时前' },
+  { path: NOTEBOOK_FILES[1].path, title: 'RF 链路余量', sub: '50 km 时链路余量是否足够…', when: '昨天' },
+];
+
 export interface ChatStep { tool: string; summary: string; ok?: boolean }
 export interface ChatMessage {
   id: string;
@@ -103,6 +116,8 @@ function download(name: string, content: string, mime = 'text/plain') {
   URL.revokeObjectURL(url);
 }
 
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+
 interface Store {
   tick: number;
   bump: () => void;
@@ -112,6 +127,13 @@ interface Store {
   selectedCellId: Ulid | null;
   expanded: Record<string, boolean>;
   sourceHidden: Record<string, boolean>;
+
+  /** measured height (px) of whichever floating bottom toolbar is on screen —
+   * content views reserve this much bottom padding so cards never end up
+   * hidden behind it (spec: three-view shared toolbar shell). */
+  toolbarHeight: number;
+  toast: { id: number; message: string } | null;
+  showToast: (message: string) => void;
 
   drawerOpen: boolean;
   drawerView: 'main' | 'account' | 'favorites' | 'newProject' | 'settings' | 'login';
@@ -162,6 +184,7 @@ interface Store {
   insertSnippet: (kind: 'code' | 'markdown', template: string, title?: string) => void;
   exportNotebook: () => void;
   exportScript: () => void;
+  loadPackage: (name: string) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -173,6 +196,8 @@ export const useStore = create<Store>((set, get) => ({
   selectedCellId: 'beam-verify',
   expanded: {},
   sourceHidden: {},
+  toolbarHeight: 190,
+  toast: null,
 
   drawerOpen: false,
   drawerView: 'main',
@@ -210,6 +235,12 @@ export const useStore = create<Store>((set, get) => ({
   autoAlert: true,
 
   set: (p) => set(p),
+
+  showToast: (message) => {
+    clearTimeout(toastTimer);
+    set({ toast: { id: Date.now(), message } });
+    toastTimer = setTimeout(() => set({ toast: null }), 2600);
+  },
 
   openNotebook: (path, mode = 'calc') => {
     getBundle(path);
@@ -287,10 +318,11 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   exportNotebook: () => {
-    const { notebookPath } = get();
+    const { notebookPath, showToast } = get();
     const { session } = getBundle(notebookPath);
     const file = NOTEBOOK_FILES.find((f) => f.path === notebookPath)!;
     download(file.fileName, serializeProMd(session.notebook), 'text/markdown');
+    showToast(`已下载 ${file.fileName}`);
   },
 
   exportScript: () => {
@@ -309,7 +341,18 @@ export const useStore = create<Store>((set, get) => ({
         }
       }
     }
-    download(nb.meta.title.replace(/\s/g, '_') + '.m', lines.join('\n'));
+    const name = nb.meta.title.replace(/\s/g, '_') + '.m';
+    download(name, lines.join('\n'));
+    get().showToast(`已下载 ${name}`);
+  },
+
+  loadPackage: (name) => {
+    const { notebookPath, showToast } = get();
+    const { session } = getBundle(notebookPath);
+    const reply = session.request({ op: 'load_package', name });
+    if (reply.op === 'err') showToast(reply.error.message);
+    else showToast(`已为当前笔记本加载域包 ${name}`);
+    get().bump();
   },
 }));
 

@@ -1,15 +1,19 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { M3 } from '../theme';
 import { useSession, useStore } from '../store';
 import { deriveCards } from '../derive';
-import { IconButton } from '../components/widgets';
+import { IconButton, SegTab, ToolbarShell } from '../components/widgets';
+import { useMeasuredHeight } from '../hooks/useMeasuredHeight';
 import { IcArrowUp, IcChevronDown, IcChevronRight } from '../components/icons';
 
 export function ReadView() {
   const { session } = useSession();
   const cards = deriveCards(session);
-  const { readCollapsed, set, goMode, selectCell } = useStore();
+  const { readCollapsed, toolbarHeight, set, goMode, selectCell } = useStore();
   const ref = useRef<HTMLDivElement>(null);
+  const measureRef = useMeasuredHeight<HTMLDivElement>(
+    useCallback((h) => useStore.setState({ toolbarHeight: h + 24 }), []),
+  );
 
   const enterEdit = (cellId?: string) => {
     if (cellId) selectCell(cellId);
@@ -18,7 +22,7 @@ export function ReadView() {
 
   return (
     <>
-      <div ref={ref} style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: '18px 16px 30px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div ref={ref} style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `18px 16px ${toolbarHeight}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 2 }}>
         {cards.map((card) => {
           if (card.kind === 'section') {
             return <div key={card.key} style={{ fontSize: 20, fontWeight: 700, color: M3.text, padding: '6px 4px 14px' }}>{card.title}</div>;
@@ -59,16 +63,27 @@ export function ReadView() {
         })}
       </div>
 
-      <div style={{ position: 'absolute', right: 12, bottom: 16, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 10 }}>
-        <IconButton size={42} onClick={() => { if (ref.current) ref.current.scrollTop = 0; }} style={{ background: '#FFFFFF', boxShadow: '0 2px 8px rgba(0,0,0,.16)' }}>
-          <IcArrowUp size={18} color={M3.primary} />
-        </IconButton>
-        <IconButton size={42} onClick={() => set({ readCollapsed: !readCollapsed })} style={{ background: '#FFFFFF', boxShadow: '0 2px 8px rgba(0,0,0,.16)' }} testId="read-collapse">
-          <div style={{ transform: readCollapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s', display: 'flex' }}>
-            <IcChevronDown size={18} color={M3.textSecondary} />
+      {/* bottom toolbar — same floating-card shell as Calc's action stack */}
+      <ToolbarShell testId="read-toolbar" style={{ padding: '10px 14px 14px' }}>
+        <div ref={measureRef} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconButton size={32} onClick={() => { if (ref.current) ref.current.scrollTop = 0; }} style={{ background: '#FFFFFF' }}>
+              <IcArrowUp size={17} color={M3.primary} />
+            </IconButton>
+            <IconButton size={32} onClick={() => set({ readCollapsed: !readCollapsed })} style={{ background: '#FFFFFF' }} testId="read-collapse">
+              <div style={{ transform: readCollapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s', display: 'flex' }}>
+                <IcChevronDown size={17} color={M3.textSecondary} />
+              </div>
+            </IconButton>
+            <span style={{ fontSize: 11.5, color: M3.textTertiary, flex: 1 }}>{readCollapsed ? '已折叠说明' : '回到顶部 · 折叠说明'}</span>
           </div>
-        </IconButton>
-      </div>
+          <div style={{ display: 'flex', background: M3.surfaceContainer, borderRadius: 20, padding: 3, gap: 2 }}>
+            <SegTab active={false} onClick={() => goMode('feed')}>Feed</SegTab>
+            <SegTab active onClick={() => {}}>Read</SegTab>
+            <SegTab active={false} onClick={() => goMode('calc')}>Calc</SegTab>
+          </div>
+        </div>
+      </ToolbarShell>
     </>
   );
 }

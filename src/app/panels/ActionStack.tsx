@@ -1,8 +1,9 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useCallback, type CSSProperties, type ReactNode } from 'react';
 import { M3 } from '../theme';
 import { useSession, useStore } from '../store';
 import { fmtNumber } from '../../core/kernel/kernel';
-import { IconButton } from '../components/widgets';
+import { IconButton, ToolbarShell } from '../components/widgets';
+import { useMeasuredHeight } from '../hooks/useMeasuredHeight';
 import {
   IcArrowDown, IcArrowUp, IcBack, IcBookmark, IcChevronDown, IcChevronUp, IcCopy, IcGear, IcNote,
   IcPlot, IcSparkle, IcTrash, IcTrend, IcSend,
@@ -110,26 +111,27 @@ export function ActionStack() {
     set, cellAction, insertSnippet, sendPrompt, setParam, selectedCellId,
   } = useStore();
   const { session } = useSession();
+  const measureRef = useMeasuredHeight<HTMLDivElement>(
+    useCallback((h) => useStore.setState({ toolbarHeight: h + 12 }), []),
+  );
 
   const firstSlider = session.notebook.cells.find((c) => c.kind.type === 'param' && c.kind.control.kind === 'slider');
   const sliderKind = firstSlider?.kind.type === 'param' ? firstSlider.kind : null;
   const sliderCtl = sliderKind?.control.kind === 'slider' ? sliderKind.control : null;
 
   const stackStyle: CSSProperties = {
-    position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 20,
-    background: M3.surfaceLow, borderRadius: 24,
-    boxShadow: '0 6px 20px rgba(0,0,0,.16), 0 1px 3px rgba(0,0,0,.1)',
     padding: actionMode === 'chat' ? 0 : undefined,
     maxHeight: actionMode === 'chat' ? '78%' : actionSubView ? 280 : undefined,
     height: actionMode === 'chat' ? '62%' : 'auto',
     display: actionMode === 'chat' ? 'flex' : 'block',
-    flexDirection: 'column', overflow: 'hidden',
+    flexDirection: 'column',
   };
 
   const tabLabel = actionTab === 'cell' ? '单元操作' : actionTab === 'insert' ? '插入' : 'AI 助手';
 
   return (
-    <div style={stackStyle} data-testid="action-stack">
+    <ToolbarShell testId="action-stack" style={stackStyle}>
+      <div ref={measureRef} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
       {actionMode === 'tools' ? (
         <div style={{ padding: '12px 16px 14px' }}>
           {!actionSubView ? (
@@ -250,6 +252,7 @@ export function ActionStack() {
       ) : (
         <ChatPanel busy={agentBusy} />
       )}
-    </div>
+      </div>
+    </ToolbarShell>
   );
 }

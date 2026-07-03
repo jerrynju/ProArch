@@ -8,8 +8,30 @@ import { SourceBlock } from '../cells/SourceBlock';
 import { PlotSvg, PlotAxisLabels } from '../cells/PlotSvg';
 import { StateChip, Chip, SliderRow } from '../components/widgets';
 import {
-  IcCheckCircle, IcChevronDown, IcNote, IcPlot, IcTable, IcTrend, IcWave, IcWrench, IcXCircle,
+  IcAntenna, IcCheckCircle, IcChevronDown, IcNote, IcPackage, IcPlot, IcTable, IcTrend, IcWave, IcWrench, IcXCircle,
 } from '../components/icons';
+import type { PackageReq } from '../../core/model/types';
+
+function PackageBadges({ packages }: { packages: PackageReq[] }) {
+  if (packages.length === 0) return null;
+  return (
+    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+      {packages.map((p) => (
+        <div
+          key={p.name}
+          data-testid={`pkg-badge-${p.name}`}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 8,
+            background: M3.secondaryContainer, color: M3.onSecondaryContainer, fontSize: 11, fontWeight: 600,
+          }}
+        >
+          {p.name === 'rf' ? <IcAntenna size={12} /> : <IcPackage size={12} />}
+          <span>{p.name} 域包 {p.version}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function CardShell({ card, children }: { card: RenderCard; children: ReactNode }) {
   const selected = useStore((s) => s.selectedCellId) === card.cell?.id;
@@ -268,9 +290,10 @@ function PlaceholderCard({ card }: { card: RenderCard }) {
 export function CalcView({ shell }: { shell: ShellTheme }) {
   const { session } = useSession();
   const cards = deriveCards(session);
+  const toolbarHeight = useStore((s) => s.toolbarHeight);
 
   return (
-    <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: '16px 14px 150px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `16px 14px ${toolbarHeight}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {cards.map((card) => {
         switch (card.kind) {
           case 'section':
@@ -278,6 +301,7 @@ export function CalcView({ shell }: { shell: ShellTheme }) {
               <div key={card.key} style={{ padding: '6px 4px 0' }}>
                 <div style={{ fontSize: 20, fontWeight: 700, color: shell.text }}>{card.title}</div>
                 <div style={{ fontSize: 12.5, color: shell.textSecondary, marginTop: 2 }}>{card.summary}</div>
+                <PackageBadges packages={session.notebook.meta.packages} />
               </div>
             );
           case 'note':

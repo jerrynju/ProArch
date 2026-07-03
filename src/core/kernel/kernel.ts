@@ -3,7 +3,7 @@
 // flows through Request → events exactly as the wire protocol defines, so a
 // remote kernel can replace this class without touching the UI.
 
-import type { Cell, Notebook, ParamValue, Ulid } from '../model/types';
+import type { Cell, Notebook, PackageReq, ParamValue, Ulid } from '../model/types';
 import { paramValueToNumber } from '../model/types';
 import { ulid } from '../model/ulid';
 import { CORE_BUILTINS } from './builtins';
@@ -115,6 +115,16 @@ export class KernelSession {
     return caps;
   }
 
+  /** every domain package this kernel process knows how to load (spec: package registry) */
+  availablePackages(): DomainPackage[] {
+    return this.packages;
+  }
+
+  /** packages actually attached to *this* notebook (subset of availablePackages) */
+  loadedPackages(): PackageReq[] {
+    return this.notebook.meta.packages;
+  }
+
   subscribe(fn: (e: Event) => void): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
@@ -159,6 +169,18 @@ export class KernelSession {
         this.symbols.clear();
         this.recompute('all');
         return { op: 'ok' };
+      case 'load_package': {
+        if (this.notebook.meta.packages.some((p) => p.name === req.name)) return { op: 'ok' }; // already loaded
+        const pkg = this.packages.find((p) => p.name === req.name);
+        if (!pkg) return { op: 'err', error: { kind: 'not_found', message: `未找到域包 ${req.name}` } };
+        for (const [name, fn] of pkg.functions) this.builtins.set(name, fn);
+        Object.assign(this.packageDocs, pkg.docs);
+        this.notebook.meta.packages.push({ name: pkg.name, version: `^${pkg.version.split('.')[0]}.0` });
+        this.notebook.meta.extra['modified'] = new Date().toISOString();
+        this.emit({ ev: 'cells_changed', origin, ops: [], pending: false });
+        this.recompute('all'); // newly available symbols may clear undefined_symbol errors
+        return { op: 'ok' };
+      }
       case 'inspect': {
         const doc = this.packageDocs[req.symbol];
         const val = this.symbols.get(req.symbol);

@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
-import { M3, type ShellTheme } from '../theme';
+import { useCallback, useEffect, useRef } from 'react';
+import { M3 } from '../theme';
 import { useSession, useStore } from '../store';
 import { deriveCards, type RenderCard } from '../derive';
 import { fmtNumber } from '../../core/kernel/kernel';
 import { PlotSvg } from '../cells/PlotSvg';
-import { SegTab, IconButton, StateChip } from '../components/widgets';
+import { SegTab, IconButton, StateChip, ToolbarShell } from '../components/widgets';
+import { useMeasuredHeight } from '../hooks/useMeasuredHeight';
 import {
   IcBookmark, IcCheckCircle, IcClose, IcDots, IcGrid, IcNote, IcSparkle, IcTable, IcWave, IcXCircle,
 } from '../components/icons';
@@ -93,13 +94,16 @@ function FeedPage({ card }: { card: RenderCard }) {
   }
 }
 
-export function FeedView({ shell }: { shell: ShellTheme }) {
+export function FeedView() {
   const { session } = useSession();
   const cards = deriveCards(session);
   const {
-    feedIndex, feedOverview, feedActionMenuOpen, set, goMode, selectCell,
+    feedIndex, feedOverview, feedActionMenuOpen, toolbarHeight, set, goMode, selectCell,
   } = useStore();
   const ref = useRef<HTMLDivElement>(null);
+  const measureRef = useMeasuredHeight<HTMLDivElement>(
+    useCallback((h) => useStore.setState({ toolbarHeight: h + 24 }), []),
+  );
 
   // when entering feed with a selected cell, jump to its card
   const selectedCellId = useStore((s) => s.selectedCellId);
@@ -138,7 +142,7 @@ export function FeedView({ shell }: { shell: ShellTheme }) {
       </div>
 
       {feedOverview && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(28,27,31,.75)', zIndex: 15, padding: '20px 16px', boxSizing: 'border-box', overflowY: 'auto' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(28,27,31,.75)', zIndex: 25, padding: '20px 16px', boxSizing: 'border-box', overflowY: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>全部卡片概览</span>
             <IconButton size={30} onClick={() => set({ feedOverview: false })} style={{ background: 'rgba(255,255,255,.15)' }}>
@@ -171,8 +175,8 @@ export function FeedView({ shell }: { shell: ShellTheme }) {
         </div>
       )}
 
-      {/* priority quick actions */}
-      <div style={{ position: 'absolute', right: 12, bottom: 96, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 16 }}>
+      {/* priority quick actions — float just above the toolbar, never over it */}
+      <div style={{ position: 'absolute', right: 12, bottom: toolbarHeight + 12, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 16 }}>
         <IconButton onClick={() => set({ artifactsOpen: true, drawerOpen: false, agentsOpen: false })} style={{ background: '#FFFFFF', boxShadow: '0 2px 8px rgba(0,0,0,.18)' }}>
           <IcBookmark size={19} color={M3.primary} />
         </IconButton>
@@ -184,7 +188,7 @@ export function FeedView({ shell }: { shell: ShellTheme }) {
             <IcDots size={19} color={M3.textSecondary} />
           </IconButton>
           {feedActionMenuOpen && (
-            <div style={{ position: 'absolute', right: 52, bottom: 0, background: '#FFFFFF', borderRadius: 14, boxShadow: '0 6px 20px rgba(0,0,0,.2)', padding: 6, minWidth: 140 }}>
+            <div style={{ position: 'absolute', right: 0, bottom: '100%', marginBottom: 8, background: '#FFFFFF', borderRadius: 14, boxShadow: '0 6px 20px rgba(0,0,0,.2)', padding: 6, minWidth: 140 }}>
               {['添加批注', '分享该卡片', '导出为图片'].map((t) => (
                 <div key={t} onClick={() => set({ feedActionMenuOpen: false })} style={{ padding: '9px 12px', fontSize: 12.5, color: M3.text, borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   {t}
@@ -195,27 +199,26 @@ export function FeedView({ shell }: { shell: ShellTheme }) {
         </div>
       </div>
 
-      {/* bottom pager + mode switch */}
-      <div style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0, padding: '10px 16px 16px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-        background: `linear-gradient(rgba(254,247,255,0), ${shell.contentBg}EB 40%)`,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <IconButton size={26} onClick={() => set({ feedOverview: !feedOverview })} testId="feed-overview-btn">
-            <IcGrid size={15} color={M3.primary} />
-          </IconButton>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {cards.map((c, i) => (
-              <div key={c.key} style={{ width: 6, height: 6, borderRadius: 3, background: i === feedIndex ? M3.primary : M3.outlineDim }} />
-            ))}
+      {/* bottom toolbar — same floating-card shell as Calc's action stack */}
+      <ToolbarShell testId="feed-toolbar" style={{ padding: '12px 16px 14px' }}>
+        <div ref={measureRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <IconButton size={26} onClick={() => set({ feedOverview: !feedOverview })} testId="feed-overview-btn">
+              <IcGrid size={15} color={M3.primary} />
+            </IconButton>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {cards.map((c, i) => (
+                <div key={c.key} style={{ width: 6, height: 6, borderRadius: 3, background: i === feedIndex ? M3.primary : M3.outlineDim }} />
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', background: M3.surfaceContainer, borderRadius: 20, padding: 3, gap: 2, width: '100%' }}>
+            <SegTab active onClick={() => {}}>Feed</SegTab>
+            <SegTab active={false} onClick={() => goMode('read')}>Read</SegTab>
+            <SegTab active={false} onClick={() => goMode('calc')}>Calc</SegTab>
           </div>
         </div>
-        <div style={{ display: 'flex', background: M3.surfaceContainer, borderRadius: 20, padding: 3, gap: 2, minWidth: 160 }}>
-          <SegTab active={false} onClick={() => goMode('read')}>Read</SegTab>
-          <SegTab active={false} onClick={() => goMode('calc')}>Calc</SegTab>
-        </div>
-      </div>
+      </ToolbarShell>
     </>
   );
 }
