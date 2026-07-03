@@ -1,11 +1,10 @@
 import { useRef, type ReactNode } from 'react';
 import { M3 } from '../theme';
-import { NOTEBOOK_FILES, useSession, useStore } from '../store';
+import { NOTEBOOK_FILES, WORKSPACE_EVOLUTION, useSession, useStore } from '../store';
 import { ComingSoonTag, disabledStyle, IconButton, Scrim, Switch } from '../components/widgets';
-import { ALL_PACKAGES } from '../../core/packages';
 import {
   IcAntenna, IcBack, IcChevronRight, IcDownload, IcFile, IcFilePlus, IcFolder, IcFolderPlus, IcGear,
-  IcLogout, IcMoon, IcPackage, IcPlus, IcStar, IcSun, IcUpload, IcUser,
+  IcLogout, IcMoon, IcPackage, IcPlus, IcSparkle, IcStar, IcSun, IcUpload, IcUser, IcWrench,
 } from '../components/icons';
 
 function SubHeader({ title, onBack }: { title: string; onBack: () => void }) {
@@ -286,15 +285,17 @@ function FolderRow({ folder }: { folder: TreeFolder }) {
 
 /**
  * Domain packages gate which functions a notebook can call (spec: `fspl` is
- * invisible until a notebook declares `packages: [rf]`) — until now the only
- * way to attach one was hand-editing the .pro.md frontmatter. This exposes
- * the same capability as a UI action against the *currently open* notebook,
- * sitting right above the settings row per the design brief.
+ * invisible until a notebook declares `packages: [rf]`). This section is the
+ * registry's UI: load any registered package into the *currently open*
+ * notebook — dependencies attach transitively (mech pulls units), and the
+ * workspace's self-evolved `learned` library is listed alongside, since it
+ * behaves exactly like a package the user authored by working.
  */
 function PackageLoaderSection() {
   const { session } = useSession();
   const loadPackage = useStore((s) => s.loadPackage);
-  const loadedNames = new Set(session.notebook.meta.packages.map((p) => p.name));
+  const attached = new Set(session.attachedPackages().map((p) => p.name));
+  const learned = [...WORKSPACE_EVOLUTION.learned.values()];
 
   return (
     <div style={{ padding: '10px 18px 4px' }}>
@@ -302,8 +303,11 @@ function PackageLoaderSection() {
         领域包 · 当前笔记本
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {ALL_PACKAGES.map((pkg) => {
-          const loaded = loadedNames.has(pkg.name);
+        {session.availablePackages().map((pkg) => {
+          const loaded = attached.has(pkg.name);
+          const deps = (pkg.requires ?? []).map((r) => r.name);
+          const usage = [...pkg.functions.keys(), ...Object.keys(pkg.constants ?? {})]
+            .reduce((n, sym) => n + (WORKSPACE_EVOLUTION.fnUsage.get(sym) ?? 0), 0);
           return (
             <div
               key={pkg.name}
@@ -314,12 +318,17 @@ function PackageLoaderSection() {
               data-testid={`pkg-loader-${pkg.name}`}
             >
               <span style={{ display: 'flex', color: M3.primary }}>
-                {pkg.name === 'rf' ? <IcAntenna size={16} /> : <IcPackage size={16} />}
+                {pkg.name === 'rf' ? <IcAntenna size={16} /> : pkg.name === 'mech' ? <IcWrench size={16} /> : <IcPackage size={16} />}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: M3.text }}>{pkg.name}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: M3.text }}>{pkg.name}</span>
+                  <span style={{ fontSize: 10, color: M3.textFaint }}>v{pkg.version}</span>
+                  {usage > 0 && <span style={{ fontSize: 10, color: M3.textFaint }}>· 引用 {usage}</span>}
+                </div>
                 <div style={{ fontSize: 10.5, color: M3.textTertiary, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {Object.keys(pkg.docs).slice(0, 3).join(' · ')}
+                  {deps.length > 0 ? `依赖 ${deps.join('、')} · ` : ''}
+                  {[...pkg.functions.keys()].slice(0, 3).join(' · ')}
                 </div>
               </div>
               {loaded ? (
@@ -338,6 +347,28 @@ function PackageLoaderSection() {
             </div>
           );
         })}
+
+        <div style={{ background: M3.surfaceLow, borderRadius: 12, padding: '9px 12px' }} data-testid="pkg-learned">
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <span style={{ display: 'flex', color: M3.primary, alignSelf: 'center' }}><IcSparkle size={14} /></span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: M3.text }}>learned</span>
+            <span style={{ fontSize: 10, color: M3.textFaint }}>v{WORKSPACE_EVOLUTION.version} · 自进化函数库</span>
+          </div>
+          {learned.length === 0 ? (
+            <div style={{ fontSize: 10.5, color: M3.textFaint, marginTop: 3 }}>
+              尚无沉淀函数 — 在符号检查器中把闭包"沉淀"到这里,即可跨笔记本复用
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
+              {learned.map((fn) => (
+                <div key={fn.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5 }} data-testid={`learned-fn-${fn.name}`}>
+                  <code style={{ fontFamily: "ui-monospace,Consolas,monospace", color: M3.onPrimaryContainer, background: M3.primaryContainer, borderRadius: 5, padding: '1px 6px' }}>{fn.name}</code>
+                  <span style={{ color: M3.textFaint, fontSize: 10.5 }}>引用 {fn.usage} 次</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

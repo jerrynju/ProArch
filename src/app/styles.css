@@ -35,3 +35,10 @@ body {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-3px); }
 }
+
+/* Card list containers are column flexboxes; flex items default to
+   flex-shrink:1 and (for overflow:hidden cards) a min-height of 0, so once
+   the list overflows the viewport the browser silently *compresses cards*
+   instead of scrolling — content gets clipped with no visual hint. Pin every
+   direct child so the list scrolls instead. */
+.pa-card-list > * { flex-shrink: 0; }

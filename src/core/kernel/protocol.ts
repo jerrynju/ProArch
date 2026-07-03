@@ -20,7 +20,10 @@ export type Request =
   | { op: 'interrupt'; generation?: number }
   | { op: 'inspect'; symbol: string }
   | { op: 'reset_kernel' }
-  | { op: 'load_package'; name: string };
+  | { op: 'load_package'; name: string }
+  /** self-evolution: lift a closure defined in a cell into the workspace's
+   * learned package, making it ambient in every session */
+  | { op: 'promote_function'; cellId: Ulid; symbol: string };
 
 export type Reply =
   | { op: 'ok' }
@@ -47,6 +50,8 @@ export interface EvalError {
   message: string;
   span?: { start: number; end: number };
   hint?: string;
+  /** offending symbol for undefined_symbol — drives capability-gap suggestions */
+  symbol?: string;
   related: Ulid[];
 }
 

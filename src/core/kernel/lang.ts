@@ -12,6 +12,8 @@ export class LangError extends Error {
     message: string,
     public span?: Span,
     public hint?: string,
+    /** the symbol name for undefined_symbol errors (capability-gap detection) */
+    public symbol?: string,
   ) {
     super(message);
   }
@@ -422,7 +424,7 @@ export function evalExpr(e: Expr, env: Env): Value {
     case 'ident': {
       const v = lookup(env, e.name);
       if (v === undefined) {
-        throw new LangError('undefined_symbol', `未定义变量 ${e.name}`, e.span, `检查拼写,或在某个单元中定义 \`let ${e.name} = …\``);
+        throw new LangError('undefined_symbol', `未定义变量 ${e.name}`, e.span, `检查拼写,或在某个单元中定义 \`let ${e.name} = …\``, e.name);
       }
       return v;
     }

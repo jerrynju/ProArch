@@ -13,8 +13,8 @@ Action Registry 与 Agent 子协议。
 ```bash
 npm install
 npm run dev          # http://127.0.0.1:5173(建议以 412×892 移动视口打开)
-npm test             # 22 个单元测试(解析器 / DAG / kernel 黄金值 / agent)
-npm run e2e          # 13 个 Playwright 场景(需 Chromium;可用 CHROMIUM_PATH 指定)
+npm test             # 35 个单元测试(解析器 / DAG / kernel 黄金值 / 注册表 / 自进化 / agent)
+npm run e2e          # 15 个 Playwright 场景(需 Chromium;可用 CHROMIUM_PATH 指定)
 npm run build        # tsc + vite 产物
 ```
 
@@ -68,10 +68,32 @@ quantity(delta_mm, "mm")
 | DAG 规则 R1–R4、失效闭包 | `src/core/kernel/dag.ts` |
 | Kernel 协议(Request/Reply/Event、MimeBundle、EvalError) | `src/core/kernel/protocol.ts` |
 | 会话:generation、事件流、pending 影子层、op journal + undo_turn | `src/core/kernel/kernel.ts` |
-| 域包(rf:fspl/dB 换算等 + llm docs) | `src/core/packages/rf.ts` |
+| 域包(rf / mech / units:函数 + 常量 + 包间依赖 + llm docs) | `src/core/packages/` |
+| 包注册表(semver 需求、依赖传递解析、冲突/循环检测、符号提供者索引) | `src/core/packages/registry.ts` |
+| 自进化(能力缺口检测、函数沉淀、learned 包版本演进、使用遥测) | `src/core/evolve/evolution.ts` |
 | Action Registry(Applicability AND/OR 谓词、内置基线、包贡献) | `src/core/actions/registry.ts` |
 | Agent 子协议(轮次事件、propose/pending、脚本化编排器) | `src/core/agent/orchestrator.ts` |
 | 三视图 = 同一卡片派生的投影 | `src/app/derive.ts` + `views/` |
+
+## 模块化扩展与自进化(MATLAB / Wolfram 对照)
+
+**注册表(仿 Wolfram paclet / MATLAB toolbox)**:域包带版本与依赖声明
+(`mech` requires `units ^1.0`);笔记本 frontmatter 只记录直接需求,打开时由
+注册表按 semver(`^ ~ >= 精确 *`)传递解析、依赖先行附加;同符号冲突与循环
+依赖在解析期报告。包常量(`E_steel`、`c0`、`g0`)进入 kernel **prelude 环境层**
+(symbols → prelude → builtins),是环境能力而非文档状态,不参与 DAG。
+
+**自进化闭环**(`EvolutionStore`,工作区级单例):
+
+1. **能力缺口自愈**:单元因 `undefined_symbol` 出错时,注册表反查提供者
+   (`whoProvides`),错误卡片直接给出"由 X 域包提供 → 加载并重算"一键修复;
+   缺口事件同时进入遥测日志。
+2. **函数沉淀**:任何单元里定义的闭包可从符号检查器"沉淀为工作区函数"——
+   进入 `learned` 包(版本每次自动 +1),经订阅机制即刻广播到所有打开的
+   会话,新会话构造时自动继承;跨笔记本直接调用,无需声明。learned 库可
+   JSON 序列化往返(工作区持久化契约)。
+3. **使用遥测**:每次求值统计包函数/沉淀函数的引用次数,抽屉包列表实时
+   显示,为后续"建议沉淀/建议卸载"提供数据。
 
 ## 视图交互(竞品对照)
 

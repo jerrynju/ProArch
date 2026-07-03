@@ -5,5 +5,7 @@
 import type { DomainPackage } from '../kernel/kernel';
 import { rfPackage } from './rf';
 import { circuitPackage } from './circuit';
+import { mechPackage } from './mech';
+import { unitsPackage } from './units';
 
-export const ALL_PACKAGES: DomainPackage[] = [rfPackage, circuitPackage];
+export const ALL_PACKAGES: DomainPackage[] = [rfPackage, circuitPackage, mechPackage, unitsPackage];
