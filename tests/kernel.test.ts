@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseProMd } from '../src/core/promd/parse';
 import { KernelSession } from '../src/core/kernel/kernel';
-import { ALL_PACKAGES } from '../src/core/packages/rf';
+import { ALL_PACKAGES } from '../src/core/packages';
 
 const load = (name: string) =>
   parseProMd(readFileSync(new URL(`../notebooks/${name}`, import.meta.url), 'utf8')).notebook;

@@ -20,6 +20,7 @@ const C0 = 299_792_458; // m/s
 export const rfPackage: DomainPackage = {
   name: 'rf',
   version: '1.0.0',
+  requires: [],
   functions: new Map<string, NativeFn>([
     // Free-space path loss, dB. fspl(d_m, f_hz) = 20log10(4πdf/c)
     native('fspl', (args, span) => {
@@ -37,7 +38,11 @@ export const rfPackage: DomainPackage = {
     // wavelength (m) from frequency (Hz)
     native('wavelength', (args, span) => C0 / num(args[0], span, 'wavelength')),
   ]),
+  constants: {
+    c0: C0, // speed of light, m/s
+  },
   docs: {
+    c0: '`c0` — 真空光速 299 792 458 m/s。',
     fspl: '`fspl(d, f)` — 自由空间路径损耗 (dB)。d: 距离 (m),f: 频率 (Hz)。FSPL = 20·log₁₀(4πdf/c)。',
     dbm_to_w: '`dbm_to_w(p)` — dBm 转瓦特。',
     w_to_dbm: '`w_to_dbm(p)` — 瓦特转 dBm。',
@@ -46,5 +51,3 @@ export const rfPackage: DomainPackage = {
     wavelength: '`wavelength(f)` — 波长 (m),f: 频率 (Hz)。',
   },
 };
-
-export const ALL_PACKAGES: DomainPackage[] = [rfPackage];

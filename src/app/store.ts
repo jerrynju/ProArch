@@ -7,7 +7,9 @@ import { parseProMd } from '../core/promd/parse';
 import { serializeProMd } from '../core/promd/serialize';
 import { KernelSession, makeCell } from '../core/kernel/kernel';
 import { AgentOrchestrator, type AgentSendMode } from '../core/agent/orchestrator';
-import { ALL_PACKAGES } from '../core/packages/rf';
+import { ALL_PACKAGES } from '../core/packages';
+import { PackageRegistry } from '../core/packages/registry';
+import { EvolutionStore } from '../core/evolve/evolution';
 import { mergedActions, type ActionDecl } from '../core/actions/registry';
 import type { Ulid } from '../core/model/types';
 import beamRaw from '../../notebooks/cantilever-beam.pro.md?raw';
@@ -60,6 +62,13 @@ interface SessionBundle {
 
 const bundles = new Map<string, SessionBundle>();
 
+/** Workspace-level shared state: one package registry and one self-evolution
+ * store across every notebook session — a function promoted in one notebook
+ * is immediately callable in all of them. */
+export const WORKSPACE_REGISTRY = new PackageRegistry();
+for (const p of ALL_PACKAGES) WORKSPACE_REGISTRY.register(p);
+export const WORKSPACE_EVOLUTION = new EvolutionStore();
+
 function greeting(path: string): ChatMessage {
   const isRf = path.includes('rf');
   return {
@@ -77,7 +86,7 @@ export function getBundle(path: string): SessionBundle {
   if (!b) {
     const file = NOTEBOOK_FILES.find((f) => f.path === path)!;
     const { notebook } = parseProMd(file.raw);
-    const session = new KernelSession(notebook, ALL_PACKAGES);
+    const session = new KernelSession(notebook, WORKSPACE_REGISTRY, { evolution: WORKSPACE_EVOLUTION });
     const agent = new AgentOrchestrator(session);
     b = { session, agent, messages: [greeting(path)], actions: mergedActions(session.capabilities) };
     bundles.set(path, b);
@@ -189,6 +198,7 @@ interface Store {
   exportNotebook: () => void;
   exportScript: () => void;
   loadPackage: (name: string) => void;
+  promoteFunction: (cellId: Ulid, symbol: string) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -355,9 +365,24 @@ export const useStore = create<Store>((set, get) => ({
   loadPackage: (name) => {
     const { notebookPath, showToast } = get();
     const { session } = getBundle(notebookPath);
+    const before = new Set(session.attachedPackages().map((p) => p.name));
     const reply = session.request({ op: 'load_package', name });
+    if (reply.op === 'err') {
+      showToast(reply.error.message);
+    } else {
+      const deps = session.attachedPackages().map((p) => p.name).filter((n) => n !== name && !before.has(n));
+      showToast(deps.length > 0 ? `已加载域包 ${name}(自动附加依赖 ${deps.join('、')})` : `已为当前笔记本加载域包 ${name}`);
+    }
+    get().bump();
+  },
+
+  promoteFunction: (cellId, symbol) => {
+    const { notebookPath, showToast } = get();
+    const { session } = getBundle(notebookPath);
+    const reply = session.request({ op: 'promote_function', cellId, symbol });
     if (reply.op === 'err') showToast(reply.error.message);
-    else showToast(`已为当前笔记本加载域包 ${name}`);
+    else showToast(`已沉淀 ${symbol} 到工作区函数库 · learned v${WORKSPACE_EVOLUTION.version}`);
+    set({ inspectSymbol: null });
     get().bump();
   },
 }));

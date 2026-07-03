@@ -249,6 +249,52 @@ test.describe('ProArch engineering notebook', () => {
     await shot(page, '24-read-properties');
   });
 
+  test('capability gap self-heals: missing package symbol → one-tap load → green', async ({ page }) => {
+    await page.goto('/');
+    await page.getByText('插入', { exact: true }).first().click();
+    await page.getByTestId('insert-compute').click();
+    await page.getByText('弯曲应力 (mech)').click();
+
+    // inserted cell errors on the mech-provided symbol; the registry suggests it
+    await expect(page.getByText('未定义变量 W_rect')).toBeVisible();
+    await expect(page.getByText('由 mech 域包提供')).toBeVisible();
+    await shot(page, '26-gap-suggestion');
+    await page.getByTestId('pkg-suggestion-btn').click();
+
+    // package (plus its units dependency) attaches, cell recomputes and passes
+    await expect(page.getByText('弯曲应力满足 Q235')).toBeVisible();
+    await expect(page.getByTestId('toast')).toContainText('units'); // dependency reported
+    await page.getByTestId('menu-btn').click();
+    await expect(page.getByTestId('pkg-loader-mech')).toContainText('已加载');
+    await expect(page.getByTestId('pkg-loader-units')).toContainText('已加载');
+    await shot(page, '27-gap-healed');
+  });
+
+  test('self-evolution: promote a closure, reuse it in another notebook', async ({ page }) => {
+    await page.goto('/');
+    await page.getByText('插入', { exact: true }).first().click();
+    await page.getByTestId('insert-compute').click();
+    await page.getByText('自定义函数').click();
+
+    // the defining cell surfaces its closure as a promotion candidate
+    await page.getByTestId('def-chip-margin_ratio').first().click();
+    await expect(page.getByTestId('inspect-sheet')).toBeVisible();
+    await page.getByTestId('inspect-promote-btn').click();
+    await expect(page.getByTestId('toast')).toContainText('learned v1.0.1');
+    await shot(page, '28-promoted');
+
+    // learned library shows it in the drawer, workspace-wide: still listed
+    // after switching to the other notebook (cross-session reuse itself is
+    // covered by unit tests in evolve.test.ts)
+    await page.getByTestId('menu-btn').click();
+    await expect(page.getByTestId('learned-fn-margin_ratio')).toBeVisible();
+    await page.getByTestId('nbfile-rf-link-budget.pro.md').click();
+    await expect(page.getByText('X 波段链路预算').first()).toBeVisible();
+    await page.getByTestId('menu-btn').click();
+    await expect(page.getByTestId('learned-fn-margin_ratio')).toBeVisible();
+    await shot(page, '29-cross-notebook');
+  });
+
   test('home view scopes recents to the active project', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('home-btn').click();

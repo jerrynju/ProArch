@@ -55,6 +55,11 @@ const COMPUTE_TEMPLATES = [
   { name: '简支梁弯矩', bg: 'linear-gradient(135deg,#C8E6C9,#8FCB93)', template: 'let M_max = F * L / 4.0;\nquantity(M_max, "kN·m")' },
   { name: '应力校核', bg: 'linear-gradient(135deg,#FFD8E4,#F3A6BE)', template: 'let sigma = F * 1000.0 * L / ((I / 12.5) * 1e-6);\ncheck(sigma <= 235e6, "应力满足限值", "应力超限")' },
   { name: '热传导', bg: 'linear-gradient(135deg,#FFE0B2,#FFB74D)', template: 'let q = 50.0 * (80.0 - 20.0) / 0.2;\nquantity(q, "W/m²")' },
+  // uses the mech domain package — inserting it into a notebook without mech
+  // demonstrates capability-gap self-healing (error card suggests the package)
+  { name: '弯曲应力 (mech)', bg: 'linear-gradient(135deg,#D0E8FF,#8FBEE8)', template: 'let W_sec = W_rect(0.1, 0.2);\nlet sigma_b = sigma_bend(18.0 `kN` * 1.5, W_sec);\ncheck(sigma_b <= sigma_y_q235, "弯曲应力满足 Q235", "弯曲应力超限")' },
+  // defines a closure — promotion candidate for the workspace learned library
+  { name: '自定义函数', bg: 'linear-gradient(135deg,#E6E0E9,#B8B2C4)', template: 'let margin_ratio = |value, limit| value / limit;\nmargin_ratio(6.67, 8.0)' },
 ];
 
 const PLOT_TEMPLATES = [

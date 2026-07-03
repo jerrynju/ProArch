@@ -1,5 +1,5 @@
 import { M3 } from '../theme';
-import { useSession, useStore } from '../store';
+import { WORKSPACE_EVOLUTION, useSession, useStore } from '../store';
 import { BottomSheet, Scrim, SheetHeader } from '../components/widgets';
 import { IcSparkle } from '../components/icons';
 
@@ -37,6 +37,7 @@ function InspectText({ text }: { text: string }) {
 export function InspectSheet() {
   const inspectSymbol = useStore((s) => s.inspectSymbol);
   const set = useStore((s) => s.set);
+  const promoteFunction = useStore((s) => s.promoteFunction);
   const { session } = useSession();
   const close = () => set({ inspectSymbol: null });
 
@@ -45,6 +46,12 @@ export function InspectSheet() {
   const definer = inspectSymbol
     ? session.notebook.cells.find((c) => session.definesOf(c.id).includes(inspectSymbol))
     : undefined;
+
+  // self-evolution entry point: a closure defined by a cell can be promoted
+  // into the workspace's learned package (ambient across all notebooks)
+  const v = inspectSymbol ? session.currentValue(inspectSymbol) : undefined;
+  const isClosure = !!v && typeof v === 'object' && !Array.isArray(v) && v.kind === 'closure';
+  const learned = inspectSymbol ? WORKSPACE_EVOLUTION.learned.get(inspectSymbol) : undefined;
 
   return (
     <>
@@ -61,23 +68,44 @@ export function InspectSheet() {
               <InspectText text={para} />
             </div>
           ))}
-          {definer && (
-            <div
-              onClick={() => {
-                close();
-                useStore.getState().selectCell(definer.id);
-                useStore.getState().goMode('calc');
-              }}
-              style={{
-                marginTop: 4, alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', borderRadius: 12, background: M3.primaryContainer,
-                color: M3.onPrimaryContainer, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-              }}
-              data-testid="inspect-goto-definer"
-            >
-              定位到定义单元
+          {learned && (
+            <div style={{ fontSize: 12, color: M3.textTertiary, background: M3.surfaceLow, borderRadius: 10, padding: '8px 12px' }} data-testid="inspect-learned-badge">
+              ✦ 已在工作区函数库(learned v{WORKSPACE_EVOLUTION.version})· 被引用 {learned.usage} 次
             </div>
           )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+            {definer && (
+              <div
+                onClick={() => {
+                  close();
+                  useStore.getState().selectCell(definer.id);
+                  useStore.getState().goMode('calc');
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 12, background: M3.primaryContainer,
+                  color: M3.onPrimaryContainer, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                }}
+                data-testid="inspect-goto-definer"
+              >
+                定位到定义单元
+              </div>
+            )}
+            {isClosure && definer && !learned && (
+              <div
+                onClick={() => promoteFunction(definer.id, inspectSymbol!)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 12, background: M3.tertiaryContainer,
+                  color: M3.onTertiaryContainer, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                }}
+                data-testid="inspect-promote-btn"
+              >
+                <IcSparkle size={14} />
+                沉淀为工作区函数
+              </div>
+            )}
+          </div>
         </div>
       </BottomSheet>
     </>

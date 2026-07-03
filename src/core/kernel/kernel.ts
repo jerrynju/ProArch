@@ -12,6 +12,8 @@ import {
   analyzeProgram, evalProgram, parse, LangError,
   type Env, type NativeFn, type Value,
 } from './lang';
+import { PackageRegistry } from '../packages/registry';
+import type { EvolutionStore } from '../evolve/evolution';
 import type {
   CellOp, CellState, EvalError, Event, JournalEntry, MimeBundle, Origin, Reply, Request,
 } from './protocol';
@@ -19,7 +21,13 @@ import type {
 export interface DomainPackage {
   name: string;
   version: string;
+  /** packages this one depends on (Wolfram-paclet style); resolved
+   * transitively by the registry before attach, deps first */
+  requires?: PackageReq[];
   functions: Map<string, NativeFn>;
+  /** exported physical/material constants — ambient bindings, like MATLAB
+   * toolbox constants; they live in the kernel prelude, not the notebook DAG */
+  constants?: Record<string, number>;
   /** one-line docs per exported symbol, for Inspect */
   docs: Record<string, string>;
 }
@@ -63,7 +71,7 @@ function toBundle(v: Value | undefined): MimeBundle {
 
 function langErrorToEval(e: unknown): EvalError {
   if (e instanceof LangError) {
-    return { kind: e.kind, message: e.message, span: e.span, hint: e.hint, related: [] };
+    return { kind: e.kind, message: e.message, span: e.span, hint: e.hint, symbol: e.symbol, related: [] };
   }
   return { kind: 'panic', message: (e as Error)?.message ?? String(e), related: [] };
 }
@@ -84,6 +92,11 @@ export class KernelSession {
   journal: JournalEntry[] = [];
   pending: PendingLayer | null = null;
 
+  /** requirements (incl. transitive deps) the registry could not satisfy */
+  missingPackages: PackageReq[] = [];
+  /** same symbol exported by multiple attached packages */
+  packageConflicts: { symbol: string; packages: string[] }[] = [];
+
   private analyses = new Map<Ulid, CellAnalysis>();
   private dag!: Dag;
   private symbols = new Map<string, Value>();
@@ -92,37 +105,100 @@ export class KernelSession {
   private listeners = new Set<(e: Event) => void>();
   private builtins: Map<string, NativeFn>;
   private packageDocs: Record<string, string> = {};
-  private packages: DomainPackage[];
+  /** ambient bindings above the notebook DAG: package constants + learned
+   * (promoted) functions — the modular-extension surface, like the MATLAB
+   * path or Wolfram's loaded-paclet contexts */
+  private prelude = new Map<string, Value>();
+  private registry: PackageRegistry;
+  private attached: DomainPackage[] = [];
+  private evolution?: EvolutionStore;
+  private unsubEvolution?: () => void;
 
-  constructor(notebook: Notebook, packages: DomainPackage[] = []) {
+  constructor(
+    notebook: Notebook,
+    packages: DomainPackage[] | PackageRegistry = [],
+    opts: { evolution?: EvolutionStore; ephemeral?: boolean } = {},
+  ) {
     this.notebook = notebook;
-    this.packages = packages;
+    this.registry = packages instanceof PackageRegistry ? packages : new PackageRegistry();
+    if (Array.isArray(packages)) for (const p of packages) this.registry.register(p);
+    this.evolution = opts.evolution;
     this.builtins = new Map(CORE_BUILTINS);
-    for (const req of notebook.meta.packages) {
-      const pkg = packages.find((p) => p.name === req.name);
-      if (pkg) {
-        for (const [name, fn] of pkg.functions) this.builtins.set(name, fn);
-        Object.assign(this.packageDocs, pkg.docs);
-      }
+
+    const res = this.registry.resolve(notebook.meta.packages);
+    this.missingPackages = res.missing;
+    this.packageConflicts = res.conflicts;
+    for (const pkg of res.order) this.attachPackage(pkg);
+
+    this.rebuildPrelude();
+    // learned functions are workspace-scoped: react to promotions made from
+    // any other session so capability spreads without reloads (self-evolution)
+    if (this.evolution && !opts.ephemeral) {
+      this.unsubEvolution = this.evolution.subscribe(() => {
+        this.rebuildPrelude();
+        this.rebuild();
+        this.recompute('all');
+      });
     }
     this.rebuild();
     this.recompute('all');
   }
 
+  dispose() {
+    this.unsubEvolution?.();
+    this.listeners.clear();
+  }
+
   get capabilities(): string[] {
-    const caps = ['agent', 'pending', 'journal'];
-    for (const p of this.notebook.meta.packages) caps.push(`pkg.${p.name}`);
+    const caps = ['agent', 'pending', 'journal', 'registry'];
+    for (const p of this.attached) caps.push(`pkg.${p.name}`);
+    if (this.evolution) caps.push('evolve');
     return caps;
   }
 
-  /** every domain package this kernel process knows how to load (spec: package registry) */
+  /** every domain package this kernel process knows how to load */
   availablePackages(): DomainPackage[] {
-    return this.packages;
+    return this.registry.all();
   }
 
-  /** packages actually attached to *this* notebook (subset of availablePackages) */
+  /** direct requirements recorded in the notebook file */
   loadedPackages(): PackageReq[] {
     return this.notebook.meta.packages;
+  }
+
+  /** everything actually attached, including transitive dependencies */
+  attachedPackages(): DomainPackage[] {
+    return [...this.attached];
+  }
+
+  private attachPackage(pkg: DomainPackage) {
+    if (this.attached.some((p) => p.name === pkg.name)) return;
+    this.attached.push(pkg);
+    for (const [name, fn] of pkg.functions) this.builtins.set(name, fn);
+    Object.assign(this.packageDocs, pkg.docs);
+  }
+
+  /** Rebuild the ambient layer: package constants, then learned functions
+   * (evaluated in insertion order so later ones may call earlier ones). */
+  private rebuildPrelude() {
+    this.prelude.clear();
+    for (const pkg of this.attached) {
+      for (const [name, v] of Object.entries(pkg.constants ?? {})) this.prelude.set(name, v);
+    }
+    if (this.evolution) {
+      const env: Env = { vars: this.prelude, parent: { vars: this.builtins as unknown as Map<string, Value> } };
+      for (const fn of this.evolution.learned.values()) {
+        try {
+          const { bindings } = evalProgram(parse(fn.source), env);
+          const v = bindings.get(fn.name);
+          if (v !== undefined) this.prelude.set(fn.name, v);
+        } catch {
+          // a learned fn may need a package this session hasn't attached —
+          // skip silently; it stays available in sessions that have it
+        }
+      }
+      Object.assign(this.packageDocs, this.evolution.docs());
+    }
   }
 
   subscribe(fn: (e: Event) => void): () => void {
@@ -170,15 +246,54 @@ export class KernelSession {
         this.recompute('all');
         return { op: 'ok' };
       case 'load_package': {
-        if (this.notebook.meta.packages.some((p) => p.name === req.name)) return { op: 'ok' }; // already loaded
-        const pkg = this.packages.find((p) => p.name === req.name);
-        if (!pkg) return { op: 'err', error: { kind: 'not_found', message: `未找到域包 ${req.name}` } };
-        for (const [name, fn] of pkg.functions) this.builtins.set(name, fn);
-        Object.assign(this.packageDocs, pkg.docs);
-        this.notebook.meta.packages.push({ name: pkg.name, version: `^${pkg.version.split('.')[0]}.0` });
+        if (this.attached.some((p) => p.name === req.name)) {
+          // attached (possibly as a dependency) — promote to a direct requirement
+          if (!this.notebook.meta.packages.some((p) => p.name === req.name)) {
+            const pkg = this.attached.find((p) => p.name === req.name)!;
+            this.notebook.meta.packages.push({ name: pkg.name, version: `^${pkg.version.split('.')[0]}.0` });
+          }
+          return { op: 'ok' };
+        }
+        const want = { name: req.name, version: '*' };
+        const res = this.registry.resolve([...this.notebook.meta.packages, want]);
+        if (res.missing.some((m) => m.name === req.name)) {
+          return { op: 'err', error: { kind: 'not_found', message: `未找到域包 ${req.name}` } };
+        }
+        if (res.missing.length > 0) {
+          return { op: 'err', error: { kind: 'unresolved', message: `依赖不满足:${res.missing.map((m) => `${m.name} ${m.version}`).join(', ')}` } };
+        }
+        this.packageConflicts = res.conflicts;
+        for (const pkg of res.order) this.attachPackage(pkg); // deps first, no-ops for already attached
+        const loaded = this.attached.find((p) => p.name === req.name)!;
+        this.notebook.meta.packages.push({ name: loaded.name, version: `^${loaded.version.split('.')[0]}.0` });
         this.notebook.meta.extra['modified'] = new Date().toISOString();
+        this.rebuildPrelude();
+        this.rebuild(); // prelude/builtin name sets feed the DAG
         this.emit({ ev: 'cells_changed', origin, ops: [], pending: false });
         this.recompute('all'); // newly available symbols may clear undefined_symbol errors
+        return { op: 'ok' };
+      }
+      case 'promote_function': {
+        if (!this.evolution) return { op: 'err', error: { kind: 'unsupported', message: '当前会话未启用自进化' } };
+        const cell = this.cellById(req.cellId);
+        if (!cell || cell.kind.type !== 'code') return { op: 'err', error: { kind: 'not_found', message: '单元不存在或不是代码单元' } };
+        const v = this.symbols.get(req.symbol);
+        if (!v || typeof v !== 'object' || Array.isArray(v) || v.kind !== 'closure') {
+          return { op: 'err', error: { kind: 'not_closure', message: `${req.symbol} 不是函数(闭包),无法沉淀` } };
+        }
+        // lift the exact `let <symbol> = …` statement out of the cell source
+        const stmts = parse(cell.kind.source);
+        const stmt = stmts.find((s) => s.t === 'let' && s.name === req.symbol);
+        if (!stmt) return { op: 'err', error: { kind: 'not_found', message: `未找到 ${req.symbol} 的定义语句` } };
+        const source = cell.kind.source.slice(stmt.span.start, stmt.span.end) + ';';
+        const params = (v as { params: string[] }).params;
+        this.evolution.promote({
+          name: req.symbol,
+          source,
+          doc: `\`${req.symbol}(${params.join(', ')})\` — 工作区沉淀函数,源自《${this.notebook.meta.title}》。`,
+          origin: { notebook: this.notebook.id, cellId: req.cellId },
+        });
+        // the evolution subscription (all sessions incl. this one) rebuilds
         return { op: 'ok' };
       }
       case 'inspect': {
@@ -214,9 +329,30 @@ export class KernelSession {
     const pkgFns: string[] = [];
     for (const ref of a.references) {
       if (this.packageDocs[ref]) pkgFns.push(ref);
-      else if (!this.builtins.has(ref)) userSyms.push(ref);
+      else if (!this.builtins.has(ref) && !this.prelude.has(ref)) userSyms.push(ref);
     }
     return { userSyms, pkgFns };
+  }
+
+  /** Capability-gap self-healing: if a cell failed on an undefined symbol
+   * that some registered-but-unattached package provides, suggest it. The
+   * gap is also logged to the evolution store for telemetry. */
+  suggestionFor(cellId: Ulid): { symbol: string; pkg: DomainPackage } | null {
+    const err = this.errors.get(cellId);
+    if (!err || err.kind !== 'undefined_symbol' || !err.symbol) return null;
+    const providers = this.registry.whoProvides(err.symbol)
+      .filter((p) => !this.attached.some((a) => a.name === p.name));
+    if (providers.length === 0) return null;
+    this.evolution?.recordGap(err.symbol, providers.map((p) => p.name));
+    return { symbol: err.symbol, pkg: providers[0] };
+  }
+
+  /** closures this cell defines — promotion candidates for the learned pkg */
+  closuresOf(id: Ulid): string[] {
+    return this.definesOf(id).filter((name) => {
+      const v = this.symbols.get(name);
+      return !!v && typeof v === 'object' && !Array.isArray(v) && v.kind === 'closure';
+    });
   }
 
   paramDisplay(cell: Cell): string {
@@ -317,7 +453,7 @@ export class KernelSession {
   proposePending(turnId: Ulid, ops: CellOp[]): { shadowGeneration: number } {
     // Shadow evaluation: clone the notebook, apply ops, evaluate in isolation.
     const clone: Notebook = JSON.parse(JSON.stringify(this.notebook));
-    const shadow = new KernelSession(clone, this.packages);
+    const shadow = new KernelSession(clone, this.registry, { evolution: this.evolution, ephemeral: true });
     for (const op of ops) shadow.applyOps([op], { by: 'agent', turnId });
 
     const shadowGeneration = ++this.generation;
@@ -365,7 +501,7 @@ export class KernelSession {
         this.analyses.set(cell.id, { defines: new Set([k.name]), references: new Set() });
       }
     }
-    this.dag = buildDag(this.notebook.cells, this.analyses, new Set(this.builtins.keys()));
+    this.dag = buildDag(this.notebook.cells, this.analyses, new Set([...this.builtins.keys(), ...this.prelude.keys()]));
     this.emit({ ev: 'dag_updated', snapshot: this.dag.snapshot });
   }
 
@@ -433,13 +569,22 @@ export class KernelSession {
         } else if (k.type === 'code') {
           const globals: Env = {
             vars: this.symbols as Map<string, Value>,
-            parent: { vars: this.builtins as unknown as Map<string, Value> },
+            parent: {
+              vars: this.prelude,
+              parent: { vars: this.builtins as unknown as Map<string, Value> },
+            },
           };
           const { bindings, last } = evalProgram(parse(k.source), globals);
           for (const [name, v] of bindings) {
             if (a.defines.has(name)) this.symbols.set(name, v);
           }
           display = last;
+          // usage telemetry: which package/learned symbols this cell leaned on
+          if (this.evolution) {
+            for (const ref of a.references) {
+              if (this.packageDocs[ref] || this.prelude.has(ref)) this.evolution.bumpUsage(ref);
+            }
+          }
         }
         const ms = Math.max(0, performance.now() - t0);
         this.errors.delete(cellId);

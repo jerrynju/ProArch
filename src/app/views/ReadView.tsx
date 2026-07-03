@@ -73,7 +73,7 @@ export function ReadView() {
 
   return (
     <>
-      <div ref={ref} style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `18px 16px ${toolbarHeight}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div ref={ref} className="pa-card-list" style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `18px 16px ${toolbarHeight}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 2 }}>
         {cards.map((card) => {
           if (card.kind === 'section') {
             return (

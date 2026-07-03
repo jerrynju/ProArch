@@ -156,7 +156,8 @@ function SymbolChips({ card }: { card: RenderCard }) {
   const set = useStore((s) => s.set);
   const { session } = useSession();
   const { userSyms, pkgFns } = session.symbolsOf(card.cell!.id);
-  if (userSyms.length === 0 && pkgFns.length === 0) return null;
+  const closures = session.closuresOf(card.cell!.id);
+  if (userSyms.length === 0 && pkgFns.length === 0 && closures.length === 0) return null;
   const chipBase = {
     display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 8,
     fontSize: 11, fontFamily: "ui-monospace,'SFMono-Regular',Consolas,monospace",
@@ -184,6 +185,13 @@ function SymbolChips({ card }: { card: RenderCard }) {
             style={{ ...chipBase, background: M3.secondaryContainer, color: M3.onSecondaryContainer }}>
             <span style={{ fontWeight: 600 }}>{s}()</span>
             <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(0,0,0,.08)', borderRadius: 4, padding: '1px 4px' }}>域包</span>
+          </div>
+        ))}
+        {closures.map((s) => (
+          <div key={s} onClick={() => set({ inspectSymbol: s })} data-testid={`def-chip-${s}`}
+            style={{ ...chipBase, background: M3.tertiaryContainer, color: M3.onTertiaryContainer }}>
+            <span style={{ fontWeight: 600 }}>ƒ {s}</span>
+            <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(0,0,0,.08)', borderRadius: 4, padding: '1px 4px' }}>本单元定义</span>
           </div>
         ))}
       </div>
@@ -270,8 +278,12 @@ function CheckCard({ card }: { card: RenderCard }) {
 }
 
 function ErrorCard({ card }: { card: RenderCard }) {
-  const { selectCell, sendPrompt, set } = useStore();
+  const { selectCell, sendPrompt, set, loadPackage } = useStore();
+  const { session } = useSession();
   const err = card.error;
+  // capability-gap self-healing: the registry knows a package providing the
+  // missing symbol — offer to attach it right on the error card
+  const suggestion = session.suggestionFor(card.cell!.id);
   return (
     <CardShell card={card}>
       <div onClick={() => selectCell(card.cell!.id)} style={{ padding: '14px 16px', cursor: 'pointer' }}>
@@ -290,6 +302,27 @@ function ErrorCard({ card }: { card: RenderCard }) {
         {err?.hint && (
           <div style={{ marginTop: 10, fontSize: 12, color: M3.textSecondary, background: M3.surfaceLow, borderRadius: 10, padding: '9px 12px' }}>
             💡 {err.hint}
+          </div>
+        )}
+        {suggestion && (
+          <div style={{
+            marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px',
+            borderRadius: 10, background: M3.secondaryContainer,
+          }}>
+            <span style={{ fontSize: 12, color: M3.onSecondaryContainer, flex: 1, minWidth: 0 }}>
+              <code style={{ fontFamily: "ui-monospace,Consolas,monospace" }}>{suggestion.symbol}</code>
+              {' '}由 <b>{suggestion.pkg.name}</b> 域包提供
+            </span>
+            <div
+              data-testid="pkg-suggestion-btn"
+              onClick={(e) => { e.stopPropagation(); loadPackage(suggestion.pkg.name); }}
+              style={{
+                flexShrink: 0, padding: '5px 12px', borderRadius: 10, background: M3.primary,
+                color: '#FFFFFF', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              加载并重算
+            </div>
           </div>
         )}
         {err && (
@@ -358,7 +391,7 @@ export function CalcView({ shell }: { shell: ShellTheme }) {
   }, []);
 
   return (
-    <div ref={ref} style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `16px 14px ${toolbarHeight}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div ref={ref} className="pa-card-list" style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `16px 14px ${toolbarHeight}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {cards.map((card) => {
         switch (card.kind) {
           case 'section':
