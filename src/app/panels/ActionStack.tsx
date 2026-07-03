@@ -5,9 +5,28 @@ import { fmtNumber } from '../../core/kernel/kernel';
 import { IconButton } from '../components/widgets';
 import {
   IcArrowDown, IcArrowUp, IcBack, IcBookmark, IcChevronDown, IcChevronUp, IcCopy, IcGear, IcNote,
-  IcPlot, IcSparkle, IcTrash, IcTrend, IcSend,
+  IcPlot, IcSparkle, IcTrash, IcTrend, IcSend, IcWrench,
 } from '../components/icons';
 import { ChatPanel } from './ChatPanel';
+import { applicableActions, type ActionContext, type CellStateTag } from '../../core/actions/registry';
+
+// registry icon-name → component, only the subset the 'ai' group actually uses
+const AI_ICONS: Record<string, (p: { size?: number }) => ReactNode> = {
+  wrench: (p) => <IcWrench {...p} />,
+  sparkle: (p) => <IcSparkle {...p} />,
+  gear: (p) => <IcGear {...p} />,
+  chart: (p) => <IcPlot {...p} />,
+  send: (p) => <IcSend {...p} />,
+};
+
+function toStateTag(s: { s: string } | undefined, errored: boolean): CellStateTag {
+  if (errored) return 'errored';
+  if (!s) return 'ok';
+  if (s.s === 'blocked') return 'blocked';
+  if (s.s === 'running' || s.s === 'queued') return 'running';
+  if (s.s === 'stale' || s.s === 'cancelled') return 'stale';
+  return 'ok';
+}
 
 function Tile({ label, icon, onClick, active, testId }: { label: string; icon: ReactNode; onClick?: () => void; active?: boolean; testId?: string }) {
   return (
@@ -110,11 +129,26 @@ export function ActionStack() {
     actionMode, actionExpanded, actionTab, actionSubView, quickParamOpen, agentBusy,
     set, cellAction, insertSnippet, sendPrompt, setParam, selectedCellId,
   } = useStore();
-  const { session } = useSession();
+  const { session, actions } = useSession();
 
   const firstSlider = session.notebook.cells.find((c) => c.kind.type === 'param' && c.kind.control.kind === 'slider');
   const sliderKind = firstSlider?.kind.type === 'param' ? firstSlider.kind : null;
   const sliderCtl = sliderKind?.control.kind === 'slider' ? sliderKind.control : null;
+
+  // Applicability-driven AI quick actions (spec Part A): the tile set adapts
+  // to the selected cell instead of always showing the same four buttons —
+  // e.g. an errored cell surfaces "修复错误" ahead of "解释"/"优化".
+  const selectedCell = selectedCellId ? session.cellById(selectedCellId) : undefined;
+  const ctx: ActionContext = {
+    view: 'calc',
+    cellKind: selectedCell?.kind.type,
+    evalState: selectedCell ? toStateTag(session.cellStates.get(selectedCell.id), session.errors.has(selectedCell.id)) : undefined,
+    outputMimes: selectedCell ? Object.keys(session.outputs.get(selectedCell.id) ?? {}) : [],
+    capabilities: session.capabilities,
+    selection: selectedCell ? 'single_cell' : 'notebook',
+    cellId: selectedCell?.id,
+  };
+  const aiActions = applicableActions(actions, ctx).filter((a) => a.group === 'ai').slice(0, 4);
 
   const stackStyle: CSSProperties = {
     position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 20,
@@ -227,17 +261,26 @@ export function ActionStack() {
                   )}
                   {actionTab === 'ai' && (
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                      <Tile label="解释" icon={<IcSparkle size={18} />} onClick={() => { set({ actionMode: 'chat' }); sendPrompt('解释这段计算', { cellId: selectedCellId ?? undefined }); }} testId="ai-explain" />
-                      <Tile label="优化" icon={<IcGear size={18} />} onClick={() => { set({ actionMode: 'chat' }); sendPrompt('优化这段计算'); }} />
-                      <div style={{ position: 'relative', flex: 1 }}>
-                        {agentBusy && <div style={SPIN_RING} />}
-                        <Tile
-                          label="生成图表" icon={<IcPlot size={18} />} active={agentBusy}
-                          onClick={() => { set({ actionMode: 'chat' }); sendPrompt('生成图表'); }}
-                          testId="ai-chart"
-                        />
-                      </div>
-                      <Tile label="提问" icon={<IcSend size={18} />} onClick={() => set({ actionMode: 'chat', actionExpanded: true })} />
+                      {aiActions.map((a) => {
+                        const Icon = AI_ICONS[a.icon] ?? AI_ICONS.sparkle;
+                        const busy = agentBusy && a.id === 'nb.generate_chart';
+                        const testId = `ai-${a.id.split('.').pop()}`;
+                        return (
+                          <div key={a.id} style={{ position: 'relative', flex: 1 }}>
+                            {busy && <div style={SPIN_RING} />}
+                            <Tile
+                              label={a.title} icon={<Icon size={18} />} active={busy} testId={testId}
+                              onClick={() => {
+                                set({ actionMode: 'chat' });
+                                if (a.invoke.type !== 'agent') return;
+                                const text = a.invoke.promptTemplate.replace('{cell_id}', selectedCellId ?? '');
+                                if (text) sendPrompt(text, { cellId: selectedCellId ?? undefined });
+                                else set({ actionExpanded: true }); // e.g. nb.ask: open chat, no canned prompt
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
