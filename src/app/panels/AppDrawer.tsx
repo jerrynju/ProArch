@@ -464,6 +464,7 @@ export function AppDrawer() {
       <Scrim open={drawerOpen} onClick={() => set({ drawerOpen: false })} />
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 46 }}>
         <div
+          className="pa-drawer"
           data-testid="drawer"
           style={{
             position: 'absolute', top: 0, left: 0, bottom: 0, width: 300, background: '#FFFFFF',

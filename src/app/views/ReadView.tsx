@@ -123,7 +123,7 @@ export function ReadView() {
     <>
       <div
         ref={ref}
-        className="pa-card-list"
+        className="pa-card-list pa-read-scroll"
         style={{
           position: 'absolute', inset: 0, overflowY: 'auto', padding: `18px 16px ${toolbarHeight}px`,
           boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 560, margin: '0 auto',

@@ -24,13 +24,13 @@ export function HomeView() {
   });
 
   return (
-    <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: '20px 16px 30px', boxSizing: 'border-box' }}>
+    <div className="pa-home-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: '20px 16px 30px', boxSizing: 'border-box' }}>
       <div style={{ fontSize: 20, fontWeight: 700, color: M3.text }}>工作台</div>
       <div style={{ fontSize: 13, color: M3.textTertiary, marginTop: 3 }}>{isLoggedIn ? '王工程师' : '未登录'},欢迎回来</div>
 
       <div style={{ fontSize: 12, fontWeight: 600, color: M3.textTertiary, margin: '22px 0 10px' }}>最近对话</div>
       {conversations.length > 0 ? (
-        <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 2 }}>
+        <div className="pa-home-conversations" style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 2 }}>
           {conversations.map((c) => (
             <div
               key={c.title}
@@ -53,7 +53,7 @@ export function HomeView() {
       )}
 
       <div style={{ fontSize: 12, fontWeight: 600, color: M3.textTertiary, margin: '22px 0 10px' }}>最近计算</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="pa-home-recents" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {summaries.map(({ file, summary }, i) => (
           <div
             key={file.path}
@@ -76,7 +76,7 @@ export function HomeView() {
       </div>
 
       <div style={{ fontSize: 12, fontWeight: 600, color: M3.textTertiary, margin: '22px 0 10px' }}>收藏</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div className="pa-home-favorites" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {files.slice(0, 4).map((f) => (
           <div key={f.path} onClick={() => openNotebook(f.path, 'calc')} style={{ background: '#FFFFFF', border: `1px solid ${M3.outline}`, borderRadius: 14, padding: 12, cursor: 'pointer' }}>
             <IcStar size={15} />

@@ -71,12 +71,12 @@ export default function App() {
   const failingChecks = autoVerify ? deriveCards(session).filter((c) => c.kind === 'check' && !c.check?.pass) : [];
 
   return (
-    <div className="pa-viewport-minh" style={{
+    <div className="pa-viewport-minh pa-app-bg" style={{
       width: '100%', background: dark ? '#0d0c10' : '#ECE6F0',
       display: 'flex', alignItems: 'stretch', justifyContent: 'center',
       fontFamily: "'Roboto', system-ui, sans-serif",
     }}>
-      <div className="pa-viewport-h" style={{
+      <div className="pa-viewport-h pa-shell" style={{
         position: 'relative', width: '100%', maxWidth: 480,
         background: shell.contentBg, display: 'flex', flexDirection: 'column', overflow: 'hidden',
         boxShadow: '0 0 40px rgba(0,0,0,.15)',
@@ -87,7 +87,7 @@ export default function App() {
         <div style={{ flexShrink: 0, height: 'env(safe-area-inset-top)', background: shell.surface }} />
 
         {/* app bar */}
-        <div style={{
+        <div className="pa-appbar" style={{
           flexShrink: 0, height: 56, display: 'flex', alignItems: 'center', padding: '0 4px', gap: 2,
           background: shell.surface, borderBottom: `1px solid ${shell.border}`, zIndex: 30,
         }}>
@@ -138,7 +138,7 @@ export default function App() {
         )}
 
         {/* content area */}
-        <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', overflowAnchor: 'none', background: shell.contentBg }}>
+        <div className="pa-content" style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', overflowAnchor: 'none', background: shell.contentBg }}>
           {mode === 'home' && <HomeView />}
           {mode === 'calc' && (
             <>

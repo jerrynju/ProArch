@@ -117,6 +117,7 @@ export function IconButton({ onClick, size = 44, children, style, testId }: {
 export function ToolbarShell({ children, style, testId }: { children: ReactNode; style?: CSSProperties; testId?: string }) {
   return (
     <div
+      className={`pa-toolbar-shell${testId ? ` pa-${testId}` : ''}`}
       data-testid={testId}
       style={{
         position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 20,
@@ -150,8 +151,9 @@ export function BottomSheet({ open, height = '70%', children, testId }: { open: 
   // scrolling (click scroll-into-view, scroll anchoring) can silently scroll
   // the overflow-hidden content area and shift every bottom-anchored layer.
   return (
-    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 46 }}>
+    <div className="pa-sheet-layer" style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 46 }}>
       <div
+        className={`pa-bottom-sheet${testId ? ` pa-${testId}` : ''}`}
         data-testid={testId}
         style={{
           position: 'absolute', left: 0, right: 0, bottom: 0, height, background: '#FFFFFF',

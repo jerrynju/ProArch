@@ -182,7 +182,7 @@ export function FeedView() {
 
   return (
     <>
-      <div ref={ref} onScroll={onScroll} data-testid="feed-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', scrollSnapType: 'y mandatory' }}>
+      <div ref={ref} className="pa-feed-scroll" onScroll={onScroll} data-testid="feed-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', scrollSnapType: 'y mandatory' }}>
         {cards.map((card) => <FeedPage key={card.key} card={card} />)}
       </div>
 

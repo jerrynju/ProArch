@@ -375,7 +375,7 @@ export function CalcView({ shell }: { shell: ShellTheme }) {
   }, []);
 
   return (
-    <div ref={ref} className="pa-card-list" style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `16px 14px ${toolbarHeight}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div ref={ref} className="pa-card-list pa-calc-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `16px 14px ${toolbarHeight}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {cards.map((card) => {
         switch (card.kind) {
           case 'section':

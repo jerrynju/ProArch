@@ -3,6 +3,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 320px;
+}
+
 /* Mobile browsers resize the viewport as chrome (address bar) shows/hides;
    a plain 100vh freezes at the tallest state, so once the bar reappears the
    app shell is taller than the real visible area and floating panels that
@@ -42,3 +49,114 @@ body {
    instead of scrolling — content gets clipped with no visual hint. Pin every
    direct child so the list scrolls instead. */
 .pa-card-list > * { flex-shrink: 0; }
+
+@media (min-width: 900px) {
+  .pa-app-bg {
+    padding: 18px;
+    box-sizing: border-box;
+    height: 100dvh;
+    min-height: 0 !important;
+    overflow: hidden;
+  }
+
+  .pa-shell {
+    max-width: 1360px !important;
+    height: calc(100dvh - 36px) !important;
+    border-radius: 18px;
+    border: 1px solid rgba(73, 69, 79, 0.16);
+  }
+
+  .pa-appbar {
+    padding: 0 12px !important;
+  }
+
+  .pa-home-scroll {
+    padding: 28px 32px 40px !important;
+  }
+
+  .pa-home-recents {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px !important;
+  }
+
+  .pa-home-favorites {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .pa-read-scroll {
+    max-width: 760px !important;
+    padding-top: 30px !important;
+  }
+
+  .pa-feed-scroll {
+    left: 50% !important;
+    right: auto !important;
+    width: min(100%, 720px);
+    transform: translateX(-50%);
+    background: #fbf8ff;
+    box-shadow: inset 1px 0 rgba(73, 69, 79, 0.08), inset -1px 0 rgba(73, 69, 79, 0.08);
+  }
+
+  .pa-drawer {
+    width: min(360px, 34vw) !important;
+  }
+
+  .pa-bottom-sheet {
+    left: 50% !important;
+    right: auto !important;
+    bottom: 24px !important;
+    width: min(560px, calc(100% - 48px)) !important;
+    height: min(680px, calc(100% - 96px)) !important;
+    border-radius: 20px !important;
+    transform: translate(-50%, 0) !important;
+  }
+
+  .pa-toolbar-shell:not(.pa-action-stack) {
+    left: 50% !important;
+    right: auto !important;
+    width: min(480px, calc(100% - 48px));
+    transform: translateX(-50%);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pa-calc-scroll {
+    right: 388px !important;
+    padding: 24px 24px 32px 32px !important;
+    max-width: 880px;
+  }
+
+  .pa-action-stack {
+    top: 16px !important;
+    right: 16px !important;
+    bottom: 16px !important;
+    left: auto !important;
+    width: 356px;
+    max-height: none !important;
+    height: auto !important;
+    border-radius: 18px !important;
+  }
+
+  .pa-action-stack [data-testid="chat-panel"] {
+    min-height: 0;
+  }
+}
+
+@media (min-width: 1200px) {
+  .pa-calc-scroll {
+    left: 24px !important;
+    right: 408px !important;
+  }
+
+  .pa-action-stack {
+    right: 24px !important;
+    width: 368px;
+  }
+}
+
+@media (max-width: 899px) {
+  .pa-shell {
+    max-width: 480px !important;
+  }
+}
